@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -74,21 +75,32 @@ func (a *App) rebuildConnList() {
 }
 
 func (a *App) removeAddConn() {
-	a.pages.RemovePage("modal")
-	a.pages.SwitchToPage("main")
+	a.pages.RemovePage(ADD_CONN_MODAL)
+	a.pages.SwitchToPage(MAIN_PAGE)
+}
+
+func (a *App) showLoadingDialog(message string) {
+	modal := tview.NewModal().SetText("⏳ " + message)
+	modal.SetBorderColor(tcell.ColorDarkCyan)
+	a.pages.AddPage(LOADING_MODAL, modal, false, true)
+	a.tviewApp.SetFocus(modal)
+}
+
+func (a *App) hideLoadingDialog() {
+	a.pages.RemovePage(LOADING_MODAL)
 }
 
 func (a *App) showConfirmDialog(message string, onConfirm func()) {
 
 	modal := tview.NewModal().SetText(message).AddButtons([]string{"Eliminar", "Cancelar"}).
 		SetDoneFunc(func(buttonIndex int, buttonLabel string) {
-			a.pages.RemovePage("confirm")
+			a.pages.RemovePage(CONFIRM_MODAL)
 			if buttonIndex == 0 {
 				onConfirm()
 			}
 		})
 	modal.SetBorderColor(tcell.ColorRed)
-	a.pages.AddPage("confirm", modal, false, true)
+	a.pages.AddPage(CONFIRM_MODAL, modal, false, true)
 	a.tviewApp.SetFocus(modal)
 }
 
@@ -109,19 +121,21 @@ func (a *App) showAddConnectionModal() {
 	form.AddInputField(USER, "", 30, nil, nil)
 	form.AddPasswordField(PASSWORD, "", 30, '*', nil)
 
-	form.AddButton("Guardar", func() {
+	form.AddButton(BTN_TEXT_SAVE, func() {
 		a.saveConfigConnection(form)
 	})
 
-	form.AddButton("Cancelar", a.removeAddConn)
+	form.AddButton(BTN_TEXT_CANCEL, a.removeAddConn)
 	form.SetCancelFunc(a.removeAddConn)
 
-	modal := tview.NewFlex().AddItem(nil, 0, 1, false).
+	modal := tview.NewFlex().
+		AddItem(nil, 0, 1, false).
 		AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
 			AddItem(nil, 0, 1, false).
 			AddItem(form, 22, 0, true).
-			AddItem(nil, 0, 1, false), 50, 0, true)
-	a.pages.AddPage("modal", modal, true, true)
+			AddItem(nil, 0, 1, false), 50, 0, true).
+		AddItem(nil, 0, 1, false)
+	a.pages.AddPage(ADD_CONN_MODAL, modal, true, true)
 	a.tviewApp.SetFocus(form)
 }
 
@@ -145,7 +159,7 @@ func (a *App) loadSchemas() {
 		return
 	}
 	a.tableView.Clear()
-	a.tableView.SetTitle("Datos")
+	a.tableView.SetTitle(TABLE_VIEW_TITLE)
 
 	rows, err := a.activeDb.Query(`
 	    SELECT table_schema, table_name
@@ -245,28 +259,38 @@ func (a *App) loadTableData(schema string, table string) {
 }
 
 func (a *App) connectTo(conn *Connection) {
+
+	a.showLoadingDialog(fmt.Sprintf("Conectando a %s...", conn.DisplayName()))
 	if a.activeDb != nil {
 		a.activeDb.Close()
 		a.activeDb = nil
 	}
-	db, err := sql.Open("postgres", conn.DSN())
-	if err != nil {
-		a.setStatus(fmt.Sprintf("[red]Error: %v[-]", err))
-		return
-	}
-	if err := db.Ping(); err != nil {
-		a.setStatus(fmt.Sprintf("[red]No se pudo conectar %v[-]", err))
-		db.Close()
-		return
-	}
-	a.activeDb = db
-	a.activeConn = conn
-	a.setStatus(fmt.Sprintf("[green]Conectado a: %s[-]", conn.DisplayName()))
-	a.loadSchemas()
 
-	a.focusIndex = 1
-	a.tviewApp.SetFocus(a.schemaTree)
-	a.updateBorders()
+	go func() {
+		time.Sleep(1 * time.Second)
+		db, err := sql.Open("postgres", conn.DSN())
+		a.tviewApp.QueueUpdateDraw(func() {
+			if err != nil {
+				a.setStatus(fmt.Sprintf("[red]Error: %v[-]", err))
+				a.hideLoadingDialog()
+				return
+			}
+			if err := db.Ping(); err != nil {
+				a.setStatus(fmt.Sprintf("[red]No se pudo conectar %v[-]", err))
+				db.Close()
+				a.hideLoadingDialog()
+				return
+			}
+			a.activeDb = db
+			a.activeConn = conn
+			a.setStatus(fmt.Sprintf("[green]Conectado a: %s[-]", conn.DisplayName()))
+			a.loadSchemas()
+			a.focusIndex = 1
+			a.tviewApp.SetFocus(a.schemaTree)
+			a.updateBorders()
+			a.hideLoadingDialog()
+		})
+	}()
 }
 
 func (a *App) cycleFocus(delta int) {
@@ -278,7 +302,7 @@ func (a *App) cycleFocus(delta int) {
 
 func (a *App) buildConnList() *tview.List {
 	list := tview.NewList()
-	list.SetTitle(" Conexiones ").SetBorder(true)
+	list.SetTitle(CONN_LIST_TITLE).SetBorder(true)
 	list.SetTitleColor(tcell.ColorAqua)
 	list.SetBorderColor(tcell.ColorDarkCyan)
 	list.SetSelectedBackgroundColor(tcell.ColorDarkCyan)
@@ -317,10 +341,10 @@ func (a *App) buildConnList() *tview.List {
 }
 
 func (a *App) buildSchemaTree() *tview.TreeView {
-	root := tview.NewTreeNode("Sin Conexión")
+	root := tview.NewTreeNode(NO_CONN_TEXT)
 	tree := tview.NewTreeView()
 	tree.SetRoot(root).SetCurrentNode(root)
-	tree.SetTitle(" Schema / Tablas ").SetBorder(true)
+	tree.SetTitle(SCHEMA_TABLES_TITLE).SetBorder(true)
 	tree.SetTitleColor(tcell.ColorAqua)
 	tree.SetBorderColor(tcell.ColorDarkCyan)
 	tree.SetGraphicsColor(tcell.ColorDarkCyan)
@@ -360,7 +384,7 @@ func (a *App) buildSchemaTree() *tview.TreeView {
 func (a *App) buildTableView() *tview.Table {
 	table := tview.NewTable()
 	table.SetBorder(true)
-	table.SetTitle(" Datos ").SetBorderColor(tcell.ColorDarkCyan)
+	table.SetTitle(TABLE_VIEW_TITLE).SetBorderColor(tcell.ColorDarkCyan)
 	table.SetTitleColor(tcell.ColorDarkCyan)
 	table.SetFixed(0, 1)
 	table.SetSelectable(true, false)
@@ -387,7 +411,8 @@ func (a *App) buildTableView() *tview.Table {
 func (a *App) buildStatusBar() *tview.TextView {
 	statusBar := tview.NewTextView()
 	statusBar.SetDynamicColors(true)
-	statusBar.SetText(" [yellow]Espacio[-] Nueva conexión  [yellow]Tab[-] Cambiar Foco  [yellow]Enter[-] Conectar /Ver tabla  [yellow]Del[-] Eliminar  [yellow]Ctrl+c[-] Salir")
+	statusBar.SetText(fmt.Sprintf(" %s  %s  %s  %s  %s ",
+		TEXT_NEW_CONN, TEXT_CHANGE_FOCUS, TEXT_CONNECT, TEXT_DELETE, TEXT_QUIT))
 	statusBar.SetBackgroundColor(tcell.ColorDarkSlateGray)
 	return statusBar
 }
@@ -406,18 +431,18 @@ func (a *App) BuildUI() {
 		AddItem(a.leftFlex, 0, 1, true).
 		AddItem(a.tableView, 0, 3, false)
 
-	rootFlex := tview.NewFlex().
+	rootFlex := tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(mainFlex, 0, 1, true).
 		AddItem(a.statusBar, 1, 0, false)
 
-	a.pages = tview.NewPages().AddPage("main", rootFlex, true, true)
+	a.pages = tview.NewPages().AddPage(MAIN_PAGE, rootFlex, true, true)
 	a.tviewApp.SetRoot(a.pages, true)
 	a.tviewApp.SetFocus(a.connList)
 
 	a.tviewApp.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyRune && event.Rune() == ' ' {
 			name, _ := a.pages.GetFrontPage()
-			if name == "main" {
+			if name == MAIN_PAGE {
 				a.showAddConnectionModal()
 			}
 		}
