@@ -129,4 +129,5 @@ Las contribuciones son bienvenidas. Siéntete libre de abrir un *Issue* o enviar
 
 ## 📄 Licencia
 
-Este proyecto está bajo la Licencia MIT.
+Este proyecto está bajo la Licencia GNU GPL v3. Consulta el archivo [LICENSE](LICENSE) para más detalles.
+
