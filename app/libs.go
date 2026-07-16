@@ -1,9 +1,12 @@
 package app
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/atotto/clipboard"
 )
 
 type DBType string
@@ -20,6 +23,21 @@ func configPath() string {
 func (a *App) setStatus(msg string) {
 	status := fmt.Sprintf("[green]λ[-] %s  [gray]|[-]  [yellow]Ctrl+C[-]: Salir", msg)
 	a.statusBar.SetText(status)
+}
+
+func copyToClipboard(dataToCopy []map[string]string) error {
+	var data interface{}
+	if len(dataToCopy) == 1 {
+		data = dataToCopy[0]
+	} else {
+		data = dataToCopy
+	}
+
+	jsonBytes, err := json.MarshalIndent(data, "", " ")
+	if err != nil {
+		return err
+	}
+	return clipboard.WriteAll(string(jsonBytes))
 }
 
 const (

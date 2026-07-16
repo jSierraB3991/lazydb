@@ -61,6 +61,7 @@ func (a *App) loadSchemas() {
 		}
 		root.AddChild(schemaNode)
 	}
+	a.setStatus(fmt.Sprintf("Conectado a la base de datos: %s", a.activeConn.DisplayName()))
 
 }
 
@@ -98,6 +99,8 @@ func (a *App) loadTableData(schema string, table string) {
 	if a.activeDb == nil {
 		return
 	}
+
+	a.tableView.Clear()
 
 	query := fmt.Sprintf(`SELECT * FROM "%s"."%s"`, schema, table)
 	rows, err := a.activeDb.Query(query)
@@ -159,6 +162,37 @@ func (a *App) deleteConnection(idx int) {
 	})
 }
 
+func (a *App) yankRows(count int) {
+	row, _ := a.tableView.GetSelection()
+	totalRows := a.tableView.GetRowCount() - 1
+
+	end := row + count - 1
+	if end > totalRows {
+		end = totalRows
+	}
+
+	cols := a.tableView.GetColumnCount()
+	headers := make([]string, cols)
+	for i := 0; i < cols; i++ {
+		headers[i] = a.tableView.GetCell(0, i).Text
+	}
+
+	var result []map[string]string
+	for r := row; r <= end; r++ {
+		rowMap := map[string]string{}
+		for i := 0; i < cols; i++ {
+			rowMap[headers[i]] = a.tableView.GetCell(r, i).Text
+		}
+		result = append(result, rowMap)
+	}
+	err := copyToClipboard(result)
+	if err != nil {
+		a.setStatus(fmt.Sprintf("[red]Error Tratando de psarlo al clipboard[-]", err))
+	} else {
+		a.setStatus(fmt.Sprintf("[green]Copiado al porta papeles[-]"))
+	}
+}
+
 func (a *App) deleteSelectedRow() {
 	if a.activeDb == nil || a.currentTable == "" {
 		return
@@ -190,7 +224,7 @@ func (a *App) deleteSelectedRow() {
 	}
 
 	a.showConfirmDialog(
-		fmt.Sprintf("¿Eliminar file %d de %s %s?", row, a.currentSchema, a.currentTable),
+		fmt.Sprintf("¿Eliminar fila %d de %s %s?", row, a.currentSchema, a.currentTable),
 		func() {
 			query := fmt.Sprintf(`DELETE FROM "%s"."%s" WHERE %s`, a.currentSchema, a.currentTable,
 				strings.Join(conditions, " AND"))

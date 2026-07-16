@@ -3,6 +3,7 @@ module github.com/jsierrab3991/lazydb
 go 1.26.5
 
 require (
+	github.com/atotto/clipboard v0.1.4
 	github.com/gdamore/tcell/v2 v2.13.10
 	github.com/lib/pq v1.12.3
 	github.com/rivo/tview v0.42.0
