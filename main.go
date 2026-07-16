@@ -6,7 +6,6 @@ import (
 	"strconv"
 
 	toolApp "github.com/jsierrab3991/lazydb/app"
-	_ "github.com/lib/pq"
 )
 
 // main.go

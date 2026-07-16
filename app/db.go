@@ -1,16 +1,149 @@
 package app
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/gdamore/tcell/v2"
+	"github.com/rivo/tview"
+
+	_ "github.com/lib/pq"
 )
 
 type TableEntry struct {
 	schema string
 	table  string
+}
+
+func (a *App) loadSchemas() {
+	if a.activeDb == nil {
+		return
+	}
+	a.tableView.Clear()
+	a.tableView.SetTitle(TABLE_VIEW_TITLE)
+
+	rows, err := a.activeDb.Query(`
+		SELECT table_schema, table_name
+		FROM information_schema.tables
+		WHERE table_schema NOT IN ('pg_catalog', 'information_schema')
+		ORDER BY table_schema, table_name
+        `)
+	if err != nil {
+		a.setStatus(fmt.Sprintf("[red]Error cargando schemas %v[-]", err))
+		return
+	}
+	defer rows.Close()
+
+	schemaMap := make(map[string][]string)
+	var schemas []string
+	for rows.Next() {
+		var schema, table string
+		rows.Scan(&schema, &table)
+		if _, ok := schemaMap[schema]; !ok {
+			schemas = append(schemas, schema)
+		}
+		schemaMap[schema] = append(schemaMap[schema], table)
+	}
+	root := tview.NewTreeNode(fmt.Sprintf("📦 %s", a.activeConn.DisplayName())).SetColor(tcell.ColorAqua)
+	a.schemaTree.SetRoot(root).SetCurrentNode(root)
+
+	for _, schema := range schemas {
+		schemaNode := tview.NewTreeNode(fmt.Sprintf("📁 %s", schema)).SetColor(tcell.ColorYellow).
+			SetSelectable(true).SetExpanded(true)
+		for _, table := range schemaMap[schema] {
+			tableNode := tview.NewTreeNode(fmt.Sprintf("🛋️ %s", table)).SetColor(tcell.ColorWhite).
+				SetReference(fmt.Sprintf("%s.%s", schema, table)).SetSelectable(true)
+			schemaNode.AddChild(tableNode)
+		}
+		root.AddChild(schemaNode)
+	}
+
+}
+
+func (a *App) connectTo(conn *Connection) {
+	a.showLoadingDialog(fmt.Sprintf("Conectando a %s...", conn.DisplayName()))
+	if a.activeDb != nil {
+		a.activeDb.Close()
+		a.activeDb = nil
+	}
+
+	go func() {
+		db, err := sql.Open("postgres", conn.DSN())
+		a.tviewApp.QueueUpdateDraw(func() {
+			defer a.hideLoadingDialog()
+			if err != nil {
+				a.setStatus(fmt.Sprintf("[red]Error: al tratar de conectar %v[-]", err))
+				return
+			}
+
+			if err := db.Ping(); err != nil {
+				a.setStatus(fmt.Sprintf("[red]Error al hacer Ping %v[-]", err))
+				db.Close()
+				return
+			}
+			a.activeDb = db
+			a.activeConn = conn
+			a.loadSchemas()
+			a.cycleFocus(1)
+		})
+	}()
+
+}
+
+func (a *App) loadTableData(schema string, table string) {
+	if a.activeDb == nil {
+		return
+	}
+
+	query := fmt.Sprintf(`SELECT * FROM "%s"."%s"`, schema, table)
+	rows, err := a.activeDb.Query(query)
+	if err != nil {
+		a.setStatus(fmt.Sprintf("[red]Error al leer la tabla: %v[-]", err))
+		return
+	}
+
+	defer rows.Close()
+	cols, err := rows.Columns()
+	if err != nil {
+		a.setStatus(fmt.Sprintf("[red]Error al leer las columnas %v[-]", err))
+		return
+	}
+
+	//headers
+	for i, col := range cols {
+		cell := tview.NewTableCell(col).SetTextColor(tcell.ColorYellow).
+			SetBackgroundColor(tcell.ColorDarkSlateGray).
+			SetAttributes(tcell.AttrBold)
+		a.tableView.SetCell(0, i, cell)
+	}
+
+	rowIdx := 1
+	vals := make([]interface{}, len(cols))
+	ptrs := make([]interface{}, len(cols))
+	for i := range vals {
+		ptrs[i] = &vals[i]
+	}
+
+	for rows.Next() {
+		rows.Scan(ptrs...)
+		for i, val := range vals {
+			text := ""
+			if val != nil {
+				text = fmt.Sprintf("%v", val)
+			}
+			cell := tview.NewTableCell(text).SetExpansion(1).SetTextColor(tcell.ColorWhite)
+			a.tableView.SetCell(rowIdx, i, cell)
+		}
+		rowIdx++
+	}
+	a.setStatus(fmt.Sprintf("[green]%s.%s - %d filas[-]", schema, table, rowIdx-1))
+	a.focusIndex = 2
+	a.tviewApp.SetFocus(a.tableView)
+	a.updateBorders()
 }
 
 func (a *App) deleteConnection(idx int) {
