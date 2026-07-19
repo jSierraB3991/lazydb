@@ -37,16 +37,23 @@ func (a *App) loadSchemas() {
 		return
 	}
 	defer rows.Close()
+	if err := rows.Err(); err != nil {
+		return
+	}
 
 	schemaMap := make(map[string][]string)
 	var schemas []string
 	for rows.Next() {
 		var schema, table string
-		rows.Scan(&schema, &table)
-		if _, ok := schemaMap[schema]; !ok {
-			schemas = append(schemas, schema)
+		err := rows.Scan(&schema, &table)
+		if err == nil {
+			if _, ok := schemaMap[schema]; !ok {
+				schemas = append(schemas, schema)
+			}
+			schemaMap[schema] = append(schemaMap[schema], table)
+		} else {
+			a.setStatus(fmt.Sprintf("[red] Error get schema and tables %v[-]", err))
 		}
-		schemaMap[schema] = append(schemaMap[schema], table)
 	}
 	root := tview.NewTreeNode(fmt.Sprintf("📦 %s", a.activeConn.DisplayName())).SetColor(tcell.ColorAqua)
 	a.schemaTree.SetRoot(root).SetCurrentNode(root)
@@ -65,10 +72,16 @@ func (a *App) loadSchemas() {
 
 }
 
+func (a App) CloseDb() {
+	if err := a.activeDb.Close(); err != nil {
+		a.setStatus(fmt.Sprintf("[red]Error close connection: %v[-]", err))
+	}
+}
+
 func (a *App) connectTo(conn *Connection) {
 	a.showLoadingDialog(fmt.Sprintf("Conectando a %s...", conn.DisplayName()))
 	if a.activeDb != nil {
-		a.activeDb.Close()
+		a.CloseDb()
 		a.activeDb = nil
 	}
 
@@ -83,7 +96,7 @@ func (a *App) connectTo(conn *Connection) {
 
 			if err := db.Ping(); err != nil {
 				a.setStatus(fmt.Sprintf("[red]Error al hacer Ping %v[-]", err))
-				db.Close()
+				a.CloseDb()
 				return
 			}
 			a.activeDb = db
@@ -105,11 +118,14 @@ func (a *App) loadTableData(schema string, table string) {
 	query := fmt.Sprintf(`SELECT * FROM "%s"."%s"`, schema, table)
 	rows, err := a.activeDb.Query(query)
 	if err != nil {
-		a.setStatus(fmt.Sprintf("[red]Error al leer la tabla: %v[-]", err))
+		a.setStatus(fmt.Sprintf("[red]Error al leer la tabla: %v[-], %s", err, query))
 		return
 	}
 
 	defer rows.Close()
+	if err := rows.Err(); err != nil {
+		return
+	}
 	cols, err := rows.Columns()
 	if err != nil {
 		a.setStatus(fmt.Sprintf("[red]Error al leer las columnas %v[-]", err))
@@ -132,7 +148,11 @@ func (a *App) loadTableData(schema string, table string) {
 	}
 
 	for rows.Next() {
-		rows.Scan(ptrs...)
+		err := rows.Scan(ptrs...)
+		if err != nil {
+			a.setStatus(fmt.Sprintf("[red]Error scan ptrs %v[-]", err))
+			continue
+		}
 		for i, val := range vals {
 			text := ""
 			if val != nil {
@@ -156,7 +176,7 @@ func (a *App) deleteConnection(idx int) {
 	name := a.connections[idx].DisplayName()
 	a.showConfirmDialog(fmt.Sprintf("¿Eliminar conexión '%s'?", name), func() {
 		a.connections = append(a.connections[:idx], a.connections[idx+1:]...)
-		saveConnections(a.connections)
+		saveConnections(a.setStatus, a.connections)
 		a.rebuildConnList()
 		a.setStatus(fmt.Sprintf("[yellow]Conexión '%s' eliminada[[-]", name))
 	})
@@ -187,9 +207,9 @@ func (a *App) yankRows(count int) {
 	}
 	err := copyToClipboard(result)
 	if err != nil {
-		a.setStatus(fmt.Sprintf("[red]Error Tratando de psarlo al clipboard[-]", err))
+		a.setStatus(fmt.Sprintf("[red]Error Tratando de pasarlo al clipboard %s[-]", err))
 	} else {
-		a.setStatus(fmt.Sprintf("[green]Copiado al porta papeles[-]"))
+		a.setStatus("[green]Copiado al porta papeles[-]")
 	}
 }
 
@@ -239,9 +259,18 @@ func (a *App) deleteSelectedRow() {
 
 }
 
-func saveConnections(conns []Connection) {
+func saveConnections(setStatus func(msg string), conns []Connection) {
 	path := configPath()
-	os.MkdirAll(filepath.Dir(path), 0755)
-	data, _ := json.MarshalIndent(conns, "", "  ")
-	os.WriteFile(path, data, 0600)
+	err := os.MkdirAll(filepath.Dir(path), 0755)
+	if err != nil {
+		setStatus(fmt.Sprintf("[red]Error verify folder of connection %v[-]", err))
+	}
+	data, err := json.MarshalIndent(conns, "", "  ")
+	if err != nil {
+		setStatus(fmt.Sprintf("[red]Error convirtiendo la conexión en json %v[-]", err))
+	}
+	err = os.WriteFile(path, data, 0600)
+	if err != nil {
+		setStatus(fmt.Sprintf("[red]Error saving connection %v[-]", err))
+	}
 }

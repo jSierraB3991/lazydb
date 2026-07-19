@@ -31,7 +31,11 @@ func NewApp() *App {
 	a := &App{
 		tviewApp: tview.NewApplication(),
 	}
-	a.connections = localConnections()
+	connections, err := localConnections()
+	if err != nil {
+		a.setStatus(fmt.Sprintf("[red]Error get connections %v[-]", err))
+	}
+	a.connections = connections
 	return a
 }
 
@@ -54,7 +58,7 @@ func (a *App) saveConfigConnection(form *tview.Form) {
 		Password:     password,
 	}
 	a.connections = append(a.connections, conn)
-	saveConnections(a.connections)
+	saveConnections(a.setStatus, a.connections)
 	a.rebuildConnList()
 	a.removeAddConn()
 
@@ -300,11 +304,16 @@ func (a *App) BuildUI() {
 	a.tviewApp.SetFocus(a.connList)
 
 	a.tviewApp.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		a.setStatus(fmt.Sprintf("[gree]Key: %v %s[-]", event.Key(), event.Name()))
 		if event.Key() == tcell.KeyRune && event.Rune() == ' ' {
 			name, _ := a.pages.GetFrontPage()
 			if name == MAIN_PAGE {
 				a.showAddConnectionModal()
 			}
+		}
+
+		if event.Key() == tcell.KeyCtrlQ {
+
 		}
 		return event
 	})
@@ -312,5 +321,7 @@ func (a *App) BuildUI() {
 
 func (a *App) Run() error {
 	a.updateBorders()
+	//a.tviewApp.EnableMouse(false)
+	a.tviewApp.SetTitle("Lazy DB")
 	return a.tviewApp.Run()
 }

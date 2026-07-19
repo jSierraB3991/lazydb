@@ -28,13 +28,16 @@ func (c Connection) DisplayName() string {
 	return fmt.Sprintf("%s@%s/%s", c.User, c.Host, c.DatabaseName)
 }
 
-func localConnections() []Connection {
+func localConnections() ([]Connection, error) {
 	data, err := os.ReadFile(configPath())
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
 	var conns []Connection
-	json.Unmarshal(data, &conns)
-	return conns
+	err = json.Unmarshal(data, &conns)
+	if err != nil {
+		return nil, err
+	}
+	return conns, nil
 }
