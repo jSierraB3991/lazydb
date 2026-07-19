@@ -25,6 +25,41 @@ func (a *App) setStatus(msg string) {
 	a.statusBar.SetText(status)
 }
 
+func (a *App) copySelectRow(count int) {
+	row, _ := a.tableView.GetSelection()
+	totalRows := a.tableView.GetRowCount() - 1
+
+	end := row + count - 1
+	if end > totalRows {
+		end = totalRows
+	}
+
+	cols := a.tableView.GetColumnCount()
+	headers := make([]string, cols)
+	for i := 0; i < cols; i++ {
+		headers[i] = a.tableView.GetCell(0, i).Text
+	}
+
+	var result []map[string]string
+	for r := row; r <= end; r++ {
+		rowMap := map[string]string{}
+		for i := 0; i < cols; i++ {
+			rowMap[headers[i]] = a.tableView.GetCell(r, i).Text
+		}
+		result = append(result, rowMap)
+	}
+	err := copyToClipboard(result)
+	if err != nil {
+		a.setStatus(fmt.Sprintf("[red]Error Tratando de pasarlo al clipboard %s[-]", err))
+	} else {
+		fila := fmt.Sprintf("Copiada la fila %v", row)
+		if count > 1 {
+			fila = fmt.Sprintf("Capiadas las filas de: %v a la: %v", row, end)
+		}
+		a.setStatus(fmt.Sprintf("[green] %s al portapapeles[-]", fila))
+	}
+}
+
 func copyToClipboard(dataToCopy []map[string]string) error {
 	var data interface{}
 	if len(dataToCopy) == 1 {
@@ -46,8 +81,8 @@ const (
 	HOST       string = "host"
 	PORT       string = "Puerto"
 	DB_NAME    string = "Base de Datos"
-	USER       string = "Usuario"
-	PASSWORD   string = "Contraseña"
+	USER       string = "Usuario"    //#gosec no sec
+	PASSWORD   string = "Contraseña" //#gosec no sec
 
 	LOADING_MODAL  string = "loading_modal"
 	CONFIRM_MODAL  string = "confirm_modal"
@@ -65,4 +100,5 @@ const (
 	TEXT_CONNECT        string = " [yellow]Espacio[-] Conectar/Ver Tabla"
 	TEXT_DELETE         string = " [yellow]Espacio[-] Eliminar"
 	TEXT_QUIT           string = " [yellow]Espacio[-] Salir"
+	COLUMN_ID_GENERIC   string = "id"
 )

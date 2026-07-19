@@ -265,6 +265,9 @@ func (a *App) buildTableView() *tview.Table {
 		case tcell.KeyDelete:
 			a.deleteSelectedRow()
 			return nil
+		case tcell.KeyCtrlD:
+			a.copySelectRow(1)
+			return nil
 		}
 		return event
 	})
@@ -304,7 +307,6 @@ func (a *App) BuildUI() {
 	a.tviewApp.SetFocus(a.connList)
 
 	a.tviewApp.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		a.setStatus(fmt.Sprintf("[gree]Key: %v %s[-]", event.Key(), event.Name()))
 		if event.Key() == tcell.KeyRune && event.Rune() == ' ' {
 			name, _ := a.pages.GetFrontPage()
 			if name == MAIN_PAGE {

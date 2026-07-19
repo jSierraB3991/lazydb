@@ -182,37 +182,6 @@ func (a *App) deleteConnection(idx int) {
 	})
 }
 
-func (a *App) yankRows(count int) {
-	row, _ := a.tableView.GetSelection()
-	totalRows := a.tableView.GetRowCount() - 1
-
-	end := row + count - 1
-	if end > totalRows {
-		end = totalRows
-	}
-
-	cols := a.tableView.GetColumnCount()
-	headers := make([]string, cols)
-	for i := 0; i < cols; i++ {
-		headers[i] = a.tableView.GetCell(0, i).Text
-	}
-
-	var result []map[string]string
-	for r := row; r <= end; r++ {
-		rowMap := map[string]string{}
-		for i := 0; i < cols; i++ {
-			rowMap[headers[i]] = a.tableView.GetCell(r, i).Text
-		}
-		result = append(result, rowMap)
-	}
-	err := copyToClipboard(result)
-	if err != nil {
-		a.setStatus(fmt.Sprintf("[red]Error Tratando de pasarlo al clipboard %s[-]", err))
-	} else {
-		a.setStatus("[green]Copiado al porta papeles[-]")
-	}
-}
-
 func (a *App) deleteSelectedRow() {
 	if a.activeDb == nil || a.currentTable == "" {
 		return
@@ -225,29 +194,41 @@ func (a *App) deleteSelectedRow() {
 
 	cols := a.tableView.GetColumnCount()
 	colNames := make([]string, cols)
-	for i := 0; i < cols; i++ {
-		colNames[i] = a.tableView.GetCell(0, i).Text
+	columnId := ""
+	for i := range cols {
+		colunmName := a.tableView.GetCell(0, i).Text
+		colNames[i] = colunmName
+		if colunmName == COLUMN_ID_GENERIC {
+			columnId = colunmName
+			break
+		}
 	}
 
 	conditions := []string{}
 	args := []interface{}{}
 	argIdx := 1
-	for i, name := range colNames {
-		val := a.tableView.GetCell(row, i).Text
-		if val == "" {
-			conditions = append(conditions, fmt.Sprintf(`"%s" IS NULL`, name))
-		} else {
-			conditions = append(conditions, fmt.Sprintf(`"%s" = $%d`, name, argIdx))
-			args = append(args, val)
-			argIdx++
+	if columnId == "" {
+		for i, name := range colNames {
+			val := a.tableView.GetCell(row, i).Text
+			if val == "" {
+				conditions = append(conditions, fmt.Sprintf(`"%s" IS NULL`, name))
+			} else {
+				conditions = append(conditions, fmt.Sprintf(`"%s" = $%d`, name, argIdx))
+				args = append(args, val)
+				argIdx++
+			}
 		}
+	} else {
+		val := a.tableView.GetCell(row, 0).Text
+		conditions = append(conditions, fmt.Sprintf(`"%s" = $%d`, COLUMN_ID_GENERIC, argIdx))
+		args = append(args, val)
 	}
 
 	a.showConfirmDialog(
 		fmt.Sprintf("¿Eliminar fila %d de %s %s?", row, a.currentSchema, a.currentTable),
 		func() {
 			query := fmt.Sprintf(`DELETE FROM "%s"."%s" WHERE %s`, a.currentSchema, a.currentTable,
-				strings.Join(conditions, " AND"))
+				strings.Join(conditions, " AND "))
 			_, err := a.activeDb.Exec(query, args...)
 			if err != nil {
 				a.setStatus(fmt.Sprintf("[red]Error eliminado: %v[-]", err))
