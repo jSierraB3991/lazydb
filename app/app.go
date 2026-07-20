@@ -3,6 +3,7 @@ package app
 import (
 	"database/sql"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/gdamore/tcell/v2"
@@ -25,11 +26,16 @@ type App struct {
 	focusIndex    int
 	currentTable  string
 	currentSchema string
+
+	yankBuffer string
+	yankCount  string
 }
 
 func NewApp() *App {
 	a := &App{
-		tviewApp: tview.NewApplication(),
+		tviewApp:   tview.NewApplication(),
+		yankBuffer: "",
+		yankCount:  "",
 	}
 	connections, err := localConnections()
 	if err != nil {
@@ -265,8 +271,28 @@ func (a *App) buildTableView() *tview.Table {
 		case tcell.KeyDelete:
 			a.deleteSelectedRow()
 			return nil
-		case tcell.KeyCtrlD:
-			a.copySelectRow(1)
+		case tcell.KeyRune:
+			r := event.Rune()
+			if r > -'1' && r <= '9' && a.yankCount != "3" {
+				a.yankCount += string(r)
+				return nil
+			}
+
+			if r == 'y' {
+				if a.yankBuffer == "y" {
+					count := 1
+					if a.yankCount != "" {
+						count, _ = strconv.Atoi(a.yankCount)
+					}
+					a.copySelectRow(count)
+					a.yankBuffer = ""
+					a.yankCount = ""
+				}
+				a.yankBuffer = "y"
+				return nil
+			}
+			a.yankBuffer = ""
+			a.yankCount = ""
 			return nil
 		}
 		return event

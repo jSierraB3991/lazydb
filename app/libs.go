@@ -53,8 +53,8 @@ func (a *App) copySelectRow(count int) {
 		a.setStatus(fmt.Sprintf("[red]Error Tratando de pasarlo al clipboard %s[-]", err))
 	} else {
 		fila := fmt.Sprintf("Copiada la fila %v", row)
-		if count > 1 {
-			fila = fmt.Sprintf("Capiadas las filas de: %v a la: %v", row, end)
+		if (row - end) > 1 {
+			fila = fmt.Sprintf("Copiadas las filas de: %v a la: %v", row, end)
 		}
 		a.setStatus(fmt.Sprintf("[green] %s al portapapeles[-]", fila))
 	}

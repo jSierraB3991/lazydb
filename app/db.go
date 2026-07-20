@@ -73,6 +73,9 @@ func (a *App) loadSchemas() {
 }
 
 func (a App) CloseDb() {
+	if a.activeDb == nil {
+		return
+	}
 	if err := a.activeDb.Close(); err != nil {
 		a.setStatus(fmt.Sprintf("[red]Error close connection: %v[-]", err))
 	}
@@ -88,12 +91,12 @@ func (a *App) connectTo(conn *Connection) {
 	go func() {
 		db, err := sql.Open("postgres", conn.DSN())
 		a.tviewApp.QueueUpdateDraw(func() {
+
 			defer a.hideLoadingDialog()
 			if err != nil {
 				a.setStatus(fmt.Sprintf("[red]Error: al tratar de conectar %v[-]", err))
 				return
 			}
-
 			if err := db.Ping(); err != nil {
 				a.setStatus(fmt.Sprintf("[red]Error al hacer Ping %v[-]", err))
 				a.CloseDb()
