@@ -19,6 +19,98 @@ type TableEntry struct {
 	table  string
 }
 
+func (a *App) disconnect() {
+	if a.activeDb == nil {
+		a.setStatus("[yellow]No hay conexión activa[-]")
+		return
+	}
+
+	name := a.activeConn.DisplayName()
+	a.activeDb.Close()
+	a.activeDb = nil
+	a.activeConn = nil
+	a.currentSchema = ""
+	a.currentTable = ""
+
+	// Limpiar el árbol de schemas
+	root := tview.NewTreeNode("Sin conexión")
+	a.schemaTree.SetRoot(root).SetCurrentNode(root)
+
+	// Limpiar la tabla
+	a.tableView.Clear()
+	a.tableView.SetTitle(" Datos ")
+
+	a.setStatus(fmt.Sprintf("[yellow]Desconectado de %s[-]", name))
+}
+
+func (a *App) showCreateDatabaseDialog() {
+	if a.activeDb == nil {
+		a.setStatus("[red]Primero conectate a una base de datos[-]")
+		return
+	}
+
+	form := tview.NewForm()
+	form.SetBorder(true).SetTitle(" Nueva Base de Datos ").SetTitleColor(tcell.ColorAqua)
+	form.SetBorderColor(tcell.ColorYellow)
+	form.SetFieldBackgroundColor(tcell.ColorDarkSlateGray)
+	form.SetFieldTextColor(tcell.ColorWhite)
+	form.SetLabelColor(tcell.ColorAqua)
+	form.SetButtonBackgroundColor(tcell.ColorDarkCyan)
+
+	form.AddInputField("Nombre", "", 40, nil, nil)
+	form.AddDropDown("Encoding", []string{"UTF8", "LATIN1", "SQL_ASCII"}, 0, nil)
+
+	form.AddButton("Crear", func() {
+		name := form.GetFormItem(0).(*tview.InputField).GetText()
+		if name == "" {
+			a.setStatus("[red]El nombre no puede estar vacío[-]")
+			return
+		}
+
+		_, encodingStr := form.GetFormItem(1).(*tview.DropDown).GetCurrentOption()
+
+		query := fmt.Sprintf(`CREATE DATABASE "%s" ENCODING '%s' OWNER "%s"`,
+			name, encodingStr, a.activeConn.User)
+
+		db, err := sql.Open("postgres", a.activeConn.DSN())
+		if err != nil {
+			a.setStatus("[red]Error: " + err.Error() + "[-]")
+			return
+		}
+		defer db.Close()
+
+		_, err = db.Exec(query)
+		if err != nil {
+			a.setStatus("[red]Error creando DB: " + err.Error() + "[-]")
+			return
+		}
+
+		a.pages.RemovePage("createdb")
+		a.setStatus(fmt.Sprintf("[green]Base de datos '%s' creada con owner '%s'[-]", name, a.activeConn.User))
+	})
+
+	form.AddButton("Cancelar", func() {
+		a.pages.RemovePage("createdb")
+	})
+
+	form.SetCancelFunc(func() {
+		a.pages.RemovePage("createdb")
+	})
+
+	modalH := tview.NewFlex().
+		AddItem(nil, 0, 1, false).
+		AddItem(form, 60, 0, true).
+		AddItem(nil, 0, 1, false)
+
+	modalV := tview.NewFlex().SetDirection(tview.FlexRow).
+		AddItem(nil, 0, 1, false).
+		AddItem(modalH, 10, 0, true).
+		AddItem(nil, 0, 1, false)
+
+	a.pages.AddPage("createdb", modalV, true, true)
+	a.tviewApp.SetFocus(form)
+}
+
 func (a *App) loadSchemas() {
 	if a.activeDb == nil {
 		return

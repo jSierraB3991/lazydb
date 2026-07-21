@@ -204,6 +204,14 @@ func (a *App) buildConnList() *tview.List {
 			}
 			return nil
 		}
+		if event.Key() == tcell.KeyCtrlB {
+			a.showCreateDatabaseDialog()
+			return nil
+		}
+		if event.Key() == tcell.KeyCtrlD {
+			a.disconnect()
+			return nil
+		}
 		return event
 	})
 
@@ -304,8 +312,6 @@ func (a *App) buildTableView() *tview.Table {
 func (a *App) buildStatusBar() *tview.TextView {
 	statusBar := tview.NewTextView()
 	statusBar.SetDynamicColors(true)
-	statusBar.SetText(fmt.Sprintf(" %s  %s  %s  %s  %s ",
-		TEXT_NEW_CONN, TEXT_CHANGE_FOCUS, TEXT_CONNECT, TEXT_DELETE, TEXT_QUIT))
 	statusBar.SetBackgroundColor(tcell.ColorDarkSlateGray)
 	return statusBar
 }
@@ -315,6 +321,8 @@ func (a *App) BuildUI() {
 	a.schemaTree = a.buildSchemaTree()
 	a.tableView = a.buildTableView()
 	a.statusBar = a.buildStatusBar()
+
+	a.setStatus("Welcome To LazyDb TUI!")
 
 	a.leftFlex = tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(a.connList, 0, 1, true).
