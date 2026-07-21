@@ -15,13 +15,45 @@ const (
 	DBPostgres DBType = "postgres"
 )
 
+const (
+	NAME       string = "Nombre (Opcional)"
+	MANAGEMENT string = "Gestor"
+	HOST       string = "host"
+	PORT       string = "Puerto"
+	DB_NAME    string = "Base de Datos"
+	USER       string = "Usuario"    //#gosec no sec
+	PASSWORD   string = "Contraseña" //#gosec no sec
+
+	LOADING_MODAL  string = "loading_modal"
+	CONFIRM_MODAL  string = "confirm_modal"
+	ADD_CONN_MODAL string = "add_conn_modal"
+	MAIN_PAGE      string = "main_page"
+
+	BTN_TEXT_SAVE       string = "Guardar"
+	BTN_TEXT_CANCEL     string = "Cancelar"
+	TABLE_VIEW_TITLE    string = " Datos "
+	CONN_LIST_TITLE     string = " Conexiones "
+	NO_CONN_TEXT        string = " Sin conexiones "
+	SCHEMA_TABLES_TITLE string = " Schema / Tablas "
+	TEXT_NEW_CONN       string = " [yellow]Espacio[-] Nueva conexión"
+	TEXT_CHANGE_FOCUS   string = " [yellow]Tab[-] Cambiar Foco"
+	TEXT_CONNECT        string = " [yellow]Enter[-] Conectar/Ver Tabla"
+	TEXT_DELETE         string = " [yellow]Delete[-] Eliminar"
+	TEXT_QUIT           string = " [yellow]Ctrl+C[-] Salir"
+	TEXT_DISCONNECT     string = " [yellow]Ctrl+D[-] Desconectar"
+	TEXT_CREATE_DB      string = " [yellow]Ctrl+B[-] Crear Base de Datos (Necesitas una conexión activa)"
+	COLUMN_ID_GENERIC   string = "id"
+)
+
 func configPath() string {
 	home, _ := os.UserHomeDir()
 	return filepath.Join(home, ".config", "lazydb", "connections.json")
 }
 
 func (a *App) setStatus(msg string) {
-	status := fmt.Sprintf("[green]λ[-] %s  [gray]|[-]  [yellow]Ctrl+C[-]: Salir", msg)
+	mainStatus := fmt.Sprintf(" %s  %s  %s  %s  %s %s %s",
+		TEXT_CREATE_DB, TEXT_NEW_CONN, TEXT_CHANGE_FOCUS, TEXT_CONNECT, TEXT_DELETE, TEXT_QUIT, TEXT_DISCONNECT)
+	status := fmt.Sprintf("[green]λ[-] %s %s  [gray]|[-]  [yellow]Ctrl+C[-]: Salir", msg, mainStatus)
 	a.statusBar.SetText(status)
 }
 
@@ -74,31 +106,3 @@ func copyToClipboard(dataToCopy []map[string]string) error {
 	}
 	return clipboard.WriteAll(string(jsonBytes))
 }
-
-const (
-	NAME       string = "Nombre (Opcional)"
-	MANAGEMENT string = "Gestor"
-	HOST       string = "host"
-	PORT       string = "Puerto"
-	DB_NAME    string = "Base de Datos"
-	USER       string = "Usuario"    //#gosec no sec
-	PASSWORD   string = "Contraseña" //#gosec no sec
-
-	LOADING_MODAL  string = "loading_modal"
-	CONFIRM_MODAL  string = "confirm_modal"
-	ADD_CONN_MODAL string = "add_conn_modal"
-	MAIN_PAGE      string = "main_page"
-
-	BTN_TEXT_SAVE       string = "Guardar"
-	BTN_TEXT_CANCEL     string = "Cancelar"
-	TABLE_VIEW_TITLE    string = " Datos "
-	CONN_LIST_TITLE     string = " Conexiones "
-	NO_CONN_TEXT        string = " Sin conexiones "
-	SCHEMA_TABLES_TITLE string = " Schema / Tablas "
-	TEXT_NEW_CONN       string = " [yellow]Espacio[-] Nueva conexión"
-	TEXT_CHANGE_FOCUS   string = " [yellow]Espacio[-] Cambiar Foco"
-	TEXT_CONNECT        string = " [yellow]Espacio[-] Conectar/Ver Tabla"
-	TEXT_DELETE         string = " [yellow]Espacio[-] Eliminar"
-	TEXT_QUIT           string = " [yellow]Espacio[-] Salir"
-	COLUMN_ID_GENERIC   string = "id"
-)
