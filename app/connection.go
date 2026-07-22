@@ -7,6 +7,7 @@ import (
 )
 
 type Connection struct {
+	Id           string `json:"id"`
 	Name         string `json:"name"`
 	Type         DBType `json:"type"`
 	Host         string `json:"host"`

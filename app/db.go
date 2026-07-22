@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/google/uuid"
+
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 
@@ -340,6 +342,12 @@ func saveConnections(setStatus func(msg string), conns []Connection) {
 	err := os.MkdirAll(filepath.Dir(path), 0755)
 	if err != nil {
 		setStatus(fmt.Sprintf("[red]Error verify folder of connection %v[-]", err))
+	}
+
+	for i := range conns {
+		if conns[i].Id == "" {
+			conns[i].Id = uuid.New().String()
+		}
 	}
 	data, err := json.MarshalIndent(conns, "", "  ")
 	if err != nil {
