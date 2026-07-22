@@ -14,6 +14,7 @@ type Connection struct {
 	User         string `json:"user"`
 	Password     string `json:"password"`
 	DatabaseName string `json:"database"`
+	IsEncrypted  bool   `json:"is_encrypted"`
 }
 
 func (c Connection) DSN() string {
@@ -31,6 +32,9 @@ func (c Connection) DisplayName() string {
 func localConnections() ([]Connection, error) {
 	data, err := os.ReadFile(configPath())
 	if err != nil {
+		if err.Error() == "open "+configPath()+": no such file or directory" {
+			return []Connection{}, nil
+		}
 		return nil, err
 	}
 

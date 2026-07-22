@@ -62,6 +62,7 @@ func (a *App) saveConfigConnection(form *tview.Form) {
 		DatabaseName: dbname,
 		User:         user,
 		Password:     password,
+		IsEncrypted:  false,
 	}
 	a.connections = append(a.connections, conn)
 	saveConnections(a.setStatus, a.connections)
