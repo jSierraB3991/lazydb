@@ -1,0 +1,18 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug LAZY BD TUI App",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}",
+            "env": {},
+            "args": [
+                "arg1", 
+                "arg2"
+            ],
+            "console": "integratedTerminal"
+        }
+    ]
+}
