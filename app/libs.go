@@ -23,6 +23,7 @@ const (
 	DB_NAME    string = "Base de Datos"
 	USER       string = "Usuario"    //#gosec no sec
 	PASSWORD   string = "Contraseña" //#gosec no sec
+	ALLOW_SSL  string = "Permitir Ssl"
 
 	LOADING_MODAL  string = "loading_modal"
 	CONFIRM_MODAL  string = "confirm_modal"
@@ -43,6 +44,7 @@ const (
 	TEXT_DISCONNECT     string = " [yellow]Ctrl+D[-] Desconectar"
 	TEXT_CREATE_DB      string = " [yellow]Ctrl+B[-] Crear Base de Datos (Necesitas una conexión activa)"
 	COLUMN_ID_GENERIC   string = "id"
+	BASE_KEY_STRING     string = "BASE_64_KEY"
 )
 
 func configPath() string {

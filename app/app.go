@@ -26,17 +26,21 @@ type App struct {
 	focusIndex    int
 	currentTable  string
 	currentSchema string
+	baseKey       string
 
 	yankBuffer string
 	yankCount  string
 }
 
-func NewApp() *App {
+func NewApp(baseKey string) *App {
 	a := &App{
 		tviewApp:   tview.NewApplication(),
 		yankBuffer: "",
 		yankCount:  "",
+		baseKey:    baseKey,
 	}
+
+	a.statusBar = a.buildStatusBar()
 	connections, err := localConnections()
 	if err != nil {
 		a.setStatus(fmt.Sprintf("[red]Error get connections %v[-]", err))
@@ -52,6 +56,7 @@ func (a *App) saveConfigConnection(form *tview.Form) {
 	host := form.GetFormItemByLabel(HOST).(*tview.InputField).GetText()
 	dbname := form.GetFormItemByLabel(DB_NAME).(*tview.InputField).GetText()
 	user := form.GetFormItemByLabel(USER).(*tview.InputField).GetText()
+	allowSsl := form.GetFormItemByLabel(ALLOW_SSL).(*tview.Checkbox).IsChecked()
 	password := form.GetFormItemByLabel(PASSWORD).(*tview.InputField).GetText()
 
 	conn := Connection{
@@ -63,9 +68,10 @@ func (a *App) saveConfigConnection(form *tview.Form) {
 		User:         user,
 		Password:     password,
 		IsEncrypted:  false,
+		AllowSsl:     allowSsl,
 	}
 	a.connections = append(a.connections, conn)
-	saveConnections(a.setStatus, a.connections)
+	saveConnections(a.baseKey, a.setStatus, a.connections)
 	a.rebuildConnList()
 	a.removeAddConn()
 
@@ -129,6 +135,7 @@ func (a *App) showAddConnectionModal() {
 	form.AddInputField(PORT, "5432", 6, nil, nil)
 	form.AddInputField(DB_NAME, "", 30, nil, nil)
 	form.AddInputField(USER, "", 30, nil, nil)
+	form.AddCheckbox(ALLOW_SSL, false, nil)
 	form.AddPasswordField(PASSWORD, "", 30, '*', nil)
 
 	form.AddButton(BTN_TEXT_SAVE, func() {
@@ -321,7 +328,6 @@ func (a *App) BuildUI() {
 	a.connList = a.buildConnList()
 	a.schemaTree = a.buildSchemaTree()
 	a.tableView = a.buildTableView()
-	a.statusBar = a.buildStatusBar()
 
 	a.setStatus("Welcome To LazyDb TUI!")
 
@@ -359,6 +365,6 @@ func (a *App) BuildUI() {
 func (a *App) Run() error {
 	a.updateBorders()
 	//a.tviewApp.EnableMouse(false)
-	a.tviewApp.SetTitle("Lazy DB")
+	//a.tviewApp.SetTitle("Lazy DB")
 	return a.tviewApp.Run()
 }

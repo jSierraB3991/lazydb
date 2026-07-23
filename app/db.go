@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	eliotlibs "github.com/jSierraB3991/jsierra-libs"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -74,7 +75,7 @@ func (a *App) showCreateDatabaseDialog() {
 		query := fmt.Sprintf(`CREATE DATABASE "%s" ENCODING '%s' OWNER "%s"`,
 			name, encodingStr, a.activeConn.User)
 
-		db, err := sql.Open("postgres", a.activeConn.DSN())
+		db, err := sql.Open("postgres", a.activeConn.DSN(a.baseKey))
 		if err != nil {
 			a.setStatus("[red]Error: " + err.Error() + "[-]")
 			return
@@ -183,7 +184,7 @@ func (a *App) connectTo(conn *Connection) {
 	}
 
 	go func() {
-		db, err := sql.Open("postgres", conn.DSN())
+		db, err := sql.Open("postgres", conn.DSN(a.baseKey))
 		a.tviewApp.QueueUpdateDraw(func() {
 
 			defer a.hideLoadingDialog()
@@ -273,7 +274,7 @@ func (a *App) deleteConnection(idx int) {
 	name := a.connections[idx].DisplayName()
 	a.showConfirmDialog(fmt.Sprintf("¿Eliminar conexión '%s'?", name), func() {
 		a.connections = append(a.connections[:idx], a.connections[idx+1:]...)
-		saveConnections(a.setStatus, a.connections)
+		saveConnections(a.baseKey, a.setStatus, a.connections)
 		a.rebuildConnList()
 		a.setStatus(fmt.Sprintf("[yellow]Conexión '%s' eliminada[[-]", name))
 	})
@@ -337,16 +338,24 @@ func (a *App) deleteSelectedRow() {
 
 }
 
-func saveConnections(setStatus func(msg string), conns []Connection) {
+func saveConnections(baseKey string, setStatus func(msg string), conns []Connection) {
 	path := configPath()
 	err := os.MkdirAll(filepath.Dir(path), 0755)
 	if err != nil {
 		setStatus(fmt.Sprintf("[red]Error verify folder of connection %v[-]", err))
+		return
 	}
 
 	for i := range conns {
 		if conns[i].Id == "" {
 			conns[i].Id = uuid.New().String()
+			passwordEncript, err := eliotlibs.Encrypt(conns[i].Password, baseKey)
+			if err != nil {
+				setStatus(fmt.Sprintf("[red]Error encriptando pass: %v[-]", err))
+				return
+			}
+			conns[i].Password = passwordEncript
+			conns[i].IsEncrypted = true
 		}
 	}
 	data, err := json.MarshalIndent(conns, "", "  ")

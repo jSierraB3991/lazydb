@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+
+	eliotlibs "github.com/jSierraB3991/jsierra-libs"
 )
 
 type Connection struct {
@@ -16,11 +18,23 @@ type Connection struct {
 	Password     string `json:"password"`
 	DatabaseName string `json:"database"`
 	IsEncrypted  bool   `json:"is_encrypted"`
+	AllowSsl     bool   `json:"allow_ssl"`
 }
 
-func (c Connection) DSN() string {
-	return fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
-		c.Host, c.Port, c.User, c.Password, c.DatabaseName)
+func (c Connection) DSN(baseKey string) string {
+	password := c.Password
+	if c.IsEncrypted {
+		passwordDecrypt, err := eliotlibs.Decrypt(c.Password, baseKey)
+		if err == nil {
+			password = passwordDecrypt
+		}
+	}
+	sslConfig := "disable"
+	if c.AllowSsl {
+		sslConfig = "allow"
+	}
+	return fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
+		c.Host, c.Port, c.User, password, c.DatabaseName, sslConfig)
 }
 
 func (c Connection) DisplayName() string {
@@ -33,9 +47,6 @@ func (c Connection) DisplayName() string {
 func localConnections() ([]Connection, error) {
 	data, err := os.ReadFile(configPath())
 	if err != nil {
-		if err.Error() == "open "+configPath()+": no such file or directory" {
-			return []Connection{}, nil
-		}
 		return nil, err
 	}
 
