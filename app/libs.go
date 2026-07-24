@@ -37,13 +37,13 @@ const (
 	CONN_LIST_TITLE     string = " Conexiones "
 	NO_CONN_TEXT        string = " Sin conexiones "
 	SCHEMA_TABLES_TITLE string = " Schema / Tablas "
-	TEXT_NEW_CONN       string = " [yellow]Espacio[-] Nueva conexión"
-	TEXT_CHANGE_FOCUS   string = " [yellow]Tab[-] Cambiar Foco"
-	TEXT_CONNECT        string = " [yellow]Enter[-] Conectar/Ver Tabla"
-	TEXT_DELETE         string = " [yellow]Delete[-] Eliminar"
-	TEXT_QUIT           string = " [yellow]Ctrl+C[-] Salir"
-	TEXT_DISCONNECT     string = " [yellow]Ctrl+D[-] Desconectar"
-	TEXT_CREATE_DB      string = " [yellow]Ctrl+B[-] Crear Base de Datos (Necesitas una conexión activa)"
+	TEXT_NEW_CONN       string = "[yellow]Espacio[-] Nueva conexión"
+	TEXT_CHANGE_FOCUS   string = "[yellow]Tab[-] Cambiar Foco"
+	TEXT_CONNECT        string = "[yellow]Enter[-] Conectar DB/Ver datos de la tabla/Editar Fila"
+	TEXT_DELETE         string = "[yellow]Delete[-] Eliminar"
+	TEXT_QUIT           string = "[yellow]Ctrl+C[-] Salir"
+	TEXT_DISCONNECT     string = "[yellow]Ctrl+D[-] Desconectar"
+	TEXT_CREATE_DB      string = "[yellow]Ctrl+B[-] Crear Base de Datos (Necesitas una conexión activa)"
 	COLUMN_ID_GENERIC   string = "id"
 	BASE_KEY_STRING     string = "BASE_64_KEY"
 )
@@ -56,7 +56,7 @@ func configPath() string {
 func (a *App) setStatus(msg string) {
 	mainStatus := fmt.Sprintf(" %s  %s  %s  %s  %s %s %s",
 		TEXT_CREATE_DB, TEXT_NEW_CONN, TEXT_CHANGE_FOCUS, TEXT_CONNECT, TEXT_DELETE, TEXT_QUIT, TEXT_DISCONNECT)
-	status := fmt.Sprintf("[green]λ[-] %s %s  [gray]|[-]  [yellow]Ctrl+C[-]: Salir", msg, mainStatus)
+	status := fmt.Sprintf("[green]λ[-]%s %s", msg, mainStatus)
 	a.statusBar.SetText(status)
 }
 

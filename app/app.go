@@ -28,8 +28,9 @@ type App struct {
 	currentSchema string
 	baseKey       string
 
-	yankBuffer string
-	yankCount  string
+	yankBuffer     string
+	yankCount      string
+	columnSelected map[string]string
 }
 
 func NewApp(baseKey string) *App {
@@ -136,11 +137,12 @@ func (a *App) showDialogUpdateSelectedRow() {
 	form.SetFieldTextColor(tcell.ColorWhite)
 	form.SetLabelColor(tcell.ColorAqua)
 
+	a.columnSelected = rowMap
 	for col, row := range rowMap {
 		form.AddInputField(col, row, 30, nil, nil)
 	}
 	form.AddButton(BTN_TEXT_SAVE, func() {
-		a.setStatus("[gree]Update Table[-]")
+		a.updateSelectedRow(form)
 		a.hideUpdateRow()
 	})
 
@@ -155,7 +157,6 @@ func (a *App) showDialogUpdateSelectedRow() {
 		AddItem(nil, 0, 1, false)
 	a.pages.AddPage(UPDATE_SELECT_ROW_MODAL, modal, true, true)
 	a.tviewApp.SetFocus(form)
-	a.setStatus("[red][-]")
 }
 
 func (a *App) hideLoadingDialog() {

@@ -114,6 +114,75 @@ func (a *App) showCreateDatabaseDialog() {
 	a.tviewApp.SetFocus(form)
 }
 
+func (a *App) updateSelectedRow(form *tview.Form) {
+	if a.activeDb == nil || a.currentTable == "" {
+		return
+	}
+
+	row, _ := a.tableView.GetSelection()
+	if row == 0 {
+		return
+	}
+
+	cols := a.tableView.GetColumnCount()
+	colId := ""
+	colNames := make([]string, cols)
+	for i := range cols {
+		colName := a.tableView.GetCell(0, i).Text
+		colNames[i] = colName
+		if colName == COLUMN_ID_GENERIC {
+			colId = colName
+		}
+	}
+
+	var changes []string
+	argIdx := 1
+	args := []interface{}{}
+	for _, col := range colNames {
+		value := form.GetFormItemByLabel(col).(*tview.InputField).GetText()
+		preValue := a.columnSelected[col]
+		if value != preValue {
+			changes = append(changes, fmt.Sprintf(` "%s"=$%d`, col, argIdx))
+			args = append(args, value)
+			argIdx++
+		}
+	}
+	if len(changes) != len(args) {
+		a.setStatus("[red]Hubo un error al tener la cantidad de cambios y valores[-]")
+		return
+	}
+
+	conditions := []string{}
+	if colId != "" {
+		val := a.tableView.GetCell(row, 0).Text
+		conditions = append(conditions, fmt.Sprintf(`"%s" = $%d`, COLUMN_ID_GENERIC, argIdx))
+		args = append(args, val)
+	} else {
+		for i, name := range colNames {
+			val := a.tableView.GetCell(row, i).Text
+			if val == "" {
+				conditions = append(conditions, fmt.Sprintf(`"%s" IS NULL`, name))
+			} else {
+				conditions = append(conditions, fmt.Sprintf(`"%s" = $%d`, name, argIdx))
+				args = append(args, val)
+				argIdx++
+			}
+		}
+	}
+	a.setStatus(fmt.Sprintf("[green]colNames: %v - changes: %s[-]", conditions, strings.Join(changes, ",")))
+	query := fmt.Sprintf(`UPDATE "%s"."%s" SET %s WHERE %s`,
+		a.currentSchema, a.currentTable,
+		strings.Join(changes, ", "),
+		strings.Join(conditions, " AND "))
+	if _, err := a.activeDb.Exec(query, args...); err != nil {
+		a.setStatus(fmt.Sprintf("[red]Error Update Row %d: %v[-]", row, err))
+		return
+	}
+	a.loadTableData(a.currentSchema, a.currentTable)
+	a.setStatus("[green]Columna actualizada[-]")
+
+}
+
 func (a *App) loadSchemas() {
 	if a.activeDb == nil {
 		return
