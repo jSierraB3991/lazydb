@@ -164,7 +164,6 @@ func (a *App) loadSchemas() {
 		root.AddChild(schemaNode)
 	}
 	a.setStatus(fmt.Sprintf("Conectado a la base de datos: %s", a.activeConn.DisplayName()))
-
 }
 
 func (a App) CloseDb() {
@@ -200,7 +199,6 @@ func (a *App) connectTo(conn *Connection) {
 			a.activeDb = db
 			a.activeConn = conn
 			a.loadSchemas()
-			a.cycleFocus(1)
 		})
 	}()
 

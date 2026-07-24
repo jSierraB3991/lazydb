@@ -102,8 +102,66 @@ func (a *App) showLoadingDialog(message string) {
 	a.tviewApp.SetFocus(modal)
 }
 
+func (a *App) hideUpdateRow() {
+	a.pages.RemovePage(UPDATE_SELECT_ROW_MODAL)
+	a.cycleFocus(0)
+}
+
+func (a *App) showDialogUpdateSelectedRow() {
+	if a.activeDb == nil || a.currentTable == "" {
+		return
+	}
+
+	row, _ := a.tableView.GetSelection()
+	if row == 0 {
+		return
+	}
+
+	cols := a.tableView.GetColumnCount()
+	colNames := make([]string, cols)
+	for i := range cols {
+		colunmName := a.tableView.GetCell(0, i).Text
+		colNames[i] = colunmName
+	}
+
+	var rowMap = make(map[string]string)
+	for i, col := range colNames {
+		rowMap[col] = a.tableView.GetCell(row, i).Text
+	}
+
+	form := tview.NewForm()
+	form.SetBorder(true).SetTitle(" Actualizar datos de la tabla ").SetTitleColor(tcell.ColorAqua)
+	form.SetBorderColor(tcell.ColorYellow)
+	form.SetFieldBackgroundColor(tcell.ColorDarkSlateGray)
+	form.SetFieldTextColor(tcell.ColorWhite)
+	form.SetLabelColor(tcell.ColorAqua)
+
+	for col, row := range rowMap {
+		form.AddInputField(col, row, 30, nil, nil)
+	}
+	form.AddButton(BTN_TEXT_SAVE, func() {
+		a.setStatus("[gree]Update Table[-]")
+		a.hideUpdateRow()
+	})
+
+	form.AddButton(BTN_TEXT_CANCEL, a.hideUpdateRow)
+	form.SetCancelFunc(a.hideUpdateRow)
+	modal := tview.NewFlex().
+		AddItem(nil, 0, 1, false).
+		AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
+			AddItem(nil, 0, 1, false).
+			AddItem(form, 30, 25, true).
+			AddItem(nil, 0, 1, false), 50, 0, true).
+		AddItem(nil, 0, 1, false)
+	a.pages.AddPage(UPDATE_SELECT_ROW_MODAL, modal, true, true)
+	a.tviewApp.SetFocus(form)
+	a.setStatus("[red][-]")
+}
+
 func (a *App) hideLoadingDialog() {
 	a.pages.RemovePage(LOADING_MODAL)
+	a.cycleFocus(1)
+	a.updateBorders()
 }
 
 func (a *App) showConfirmDialog(message string, onConfirm func()) {
@@ -122,7 +180,7 @@ func (a *App) showConfirmDialog(message string, onConfirm func()) {
 
 func (a *App) showAddConnectionModal() {
 	form := tview.NewForm()
-	form.SetBorder(true).SetTitle(" Nuev Conexión ").SetTitleColor(tcell.ColorAqua)
+	form.SetBorder(true).SetTitle(" Nueva Conexión ").SetTitleColor(tcell.ColorAqua)
 	form.SetBorderColor(tcell.ColorYellow)
 	form.SetFieldBackgroundColor(tcell.ColorDarkSlateGray)
 	form.SetFieldTextColor(tcell.ColorWhite)
@@ -164,17 +222,19 @@ func (a *App) updateBorders() {
 	switch a.focusIndex {
 	case 0:
 		a.connList.SetBorderColor(tcell.ColorYellow)
+		a.tviewApp.SetFocus(a.connList)
 	case 1:
 		a.schemaTree.SetBorderColor(tcell.ColorYellow)
+		a.tviewApp.SetFocus(a.schemaTree)
 	case 2:
 		a.tableView.SetBorderColor(tcell.ColorYellow)
+		a.tviewApp.SetFocus(a.tableView)
 	}
 }
 
 func (a *App) cycleFocus(delta int) {
 	panels := []tview.Primitive{a.connList, a.schemaTree, a.tableView}
 	a.focusIndex = (a.focusIndex + delta + len(panels)) % len(panels)
-	a.tviewApp.SetFocus(panels[a.focusIndex])
 	a.updateBorders()
 }
 
@@ -190,7 +250,9 @@ func (a *App) buildConnList() *tview.List {
 
 	for _, c := range a.connections {
 		icon := "🐘"
-		list.AddItem(icon+" "+c.DisplayName(), "", 0, func() { a.connectTo(&c) })
+		list.AddItem(icon+" "+c.DisplayName(), "", 0, func() {
+			a.connectTo(&c)
+		})
 	}
 
 	if len(a.connections) == 0 {
@@ -287,6 +349,9 @@ func (a *App) buildTableView() *tview.Table {
 		case tcell.KeyDelete:
 			a.deleteSelectedRow()
 			return nil
+		case tcell.KeyEnter:
+			a.showDialogUpdateSelectedRow()
+			return nil
 		case tcell.KeyRune:
 			r := event.Rune()
 			if r > -'1' && r <= '9' && a.yankCount != "3" {
@@ -348,16 +413,23 @@ func (a *App) BuildUI() {
 	a.tviewApp.SetFocus(a.connList)
 
 	a.tviewApp.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		if event.Key() == tcell.KeyRune && event.Rune() == ' ' {
-			name, _ := a.pages.GetFrontPage()
-			if name == MAIN_PAGE {
-				a.showAddConnectionModal()
+		switch event.Key() {
+		case tcell.KeyRune:
+			if event.Rune() == ' ' {
+				name, _ := a.pages.GetFrontPage()
+				if name == MAIN_PAGE {
+					a.showAddConnectionModal()
+				}
+			}
+		case tcell.KeyCtrlC:
+			if a.activeDb != nil {
+				a.activeDb = nil
+			}
+			if a.activeConn != nil {
+				a.activeConn = nil
 			}
 		}
 
-		if event.Key() == tcell.KeyCtrlQ {
-
-		}
 		return event
 	})
 }

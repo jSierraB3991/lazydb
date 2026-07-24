@@ -25,10 +25,11 @@ const (
 	PASSWORD   string = "Contraseña" //#gosec no sec
 	ALLOW_SSL  string = "Permitir Ssl"
 
-	LOADING_MODAL  string = "loading_modal"
-	CONFIRM_MODAL  string = "confirm_modal"
-	ADD_CONN_MODAL string = "add_conn_modal"
-	MAIN_PAGE      string = "main_page"
+	LOADING_MODAL           string = "loading_modal"
+	CONFIRM_MODAL           string = "confirm_modal"
+	ADD_CONN_MODAL          string = "add_conn_modal"
+	MAIN_PAGE               string = "main_page"
+	UPDATE_SELECT_ROW_MODAL string = "update_select_row_modal"
 
 	BTN_TEXT_SAVE       string = "Guardar"
 	BTN_TEXT_CANCEL     string = "Cancelar"
