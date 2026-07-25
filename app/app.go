@@ -318,6 +318,9 @@ func (a *App) buildInputFieldTable() *tview.InputField {
 		textLower := strings.Trim(strings.ToLower(text), "")
 		newDataSchema := make(map[string][]string)
 		if textLower == "" {
+			if a.schemaMap == nil {
+				return
+			}
 			newDataSchema = a.schemaMap
 		} else {
 			a.tableView.Clear()

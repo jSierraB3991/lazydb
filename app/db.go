@@ -34,9 +34,9 @@ func (a *App) disconnect() {
 	a.activeConn = nil
 	a.currentSchema = ""
 	a.currentTable = ""
+	a.schemaMap = nil
 	a.filterTable.SetText("")
 	a.filterTable.SetDisabled(true)
-	a.schemaMap = nil
 
 	// Limpiar el árbol de schemas
 	root := tview.NewTreeNode("Sin conexión")
