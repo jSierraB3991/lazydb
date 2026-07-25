@@ -15,13 +15,15 @@ type App struct {
 	activeConn  *Connection
 	connections []Connection
 
-	tviewApp   *tview.Application
-	statusBar  *tview.TextView
-	connList   *tview.List
-	schemaTree *tview.TreeView
-	tableView  *tview.Table
-	leftFlex   *tview.Flex
-	pages      *tview.Pages
+	tviewApp    *tview.Application
+	statusBar   *tview.TextView
+	connList    *tview.List
+	schemaTree  *tview.TreeView
+	tableView   *tview.Table
+	leftFlex    *tview.Flex
+	pages       *tview.Pages
+	filterTable *tview.InputField
+	filterRow   *tview.InputField
 
 	focusIndex    int
 	currentTable  string
@@ -31,6 +33,7 @@ type App struct {
 	yankBuffer     string
 	yankCount      string
 	columnSelected map[string]string
+	schemaMap      map[string][]string
 }
 
 func NewApp(baseKey string) *App {
@@ -161,8 +164,11 @@ func (a *App) showDialogUpdateSelectedRow() {
 
 func (a *App) hideLoadingDialog() {
 	a.pages.RemovePage(LOADING_MODAL)
-	a.cycleFocus(1)
-	a.updateBorders()
+	a.filterTable.SetDisabled(a.schemaMap == nil)
+	if a.schemaMap != nil {
+		a.cycleFocus(1)
+		a.updateBorders()
+	}
 }
 
 func (a *App) showConfirmDialog(message string, onConfirm func()) {
@@ -219,22 +225,26 @@ func (a *App) updateBorders() {
 	a.connList.SetBorderColor(tcell.ColorDarkCyan)
 	a.schemaTree.SetBorderColor(tcell.ColorDarkCyan)
 	a.tableView.SetBorderColor(tcell.ColorDarkCyan)
+	a.filterTable.SetBorderColor(tcell.ColorDarkCyan)
 
 	switch a.focusIndex {
 	case 0:
 		a.connList.SetBorderColor(tcell.ColorYellow)
 		a.tviewApp.SetFocus(a.connList)
 	case 1:
+		a.filterTable.SetBorderColor(tcell.ColorYellow)
+		a.tviewApp.SetFocus(a.filterTable)
+	case 2:
 		a.schemaTree.SetBorderColor(tcell.ColorYellow)
 		a.tviewApp.SetFocus(a.schemaTree)
-	case 2:
+	case 3:
 		a.tableView.SetBorderColor(tcell.ColorYellow)
 		a.tviewApp.SetFocus(a.tableView)
 	}
 }
 
 func (a *App) cycleFocus(delta int) {
-	panels := []tview.Primitive{a.connList, a.schemaTree, a.tableView}
+	panels := []tview.Primitive{a.connList, a.filterTable, a.schemaTree, a.tableView}
 	a.focusIndex = (a.focusIndex + delta + len(panels)) % len(panels)
 	a.updateBorders()
 }
@@ -287,6 +297,62 @@ func (a *App) buildConnList() *tview.List {
 	})
 
 	return list
+}
+
+func (a *App) buildInputFieldTable() *tview.InputField {
+	inputField := tview.NewInputField().SetLabel(INPUT_FILTER_TITLE) //.SetBorder(true)
+
+	inputField.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		switch event.Key() {
+		case tcell.KeyEnter, tcell.KeyTab:
+			a.cycleFocus(1)
+			return nil
+		case tcell.KeyBacktab:
+			a.cycleFocus(-1)
+			return nil
+
+		}
+		return event
+	})
+	inputField.SetChangedFunc(func(text string) {
+		textLower := strings.Trim(strings.ToLower(text), "")
+		newDataSchema := make(map[string][]string)
+		if textLower == "" {
+			newDataSchema = a.schemaMap
+		} else {
+			a.tableView.Clear()
+			for schema := range a.schemaMap {
+				if strings.Contains(strings.ToLower(schema), textLower) {
+					newDataSchema[schema] = a.schemaMap[schema]
+				} else {
+					for _, table := range a.schemaMap[schema] {
+						if strings.Contains(strings.ToLower(table), textLower) {
+							newDataSchema[schema] = a.schemaMap[schema]
+						}
+					}
+				}
+			}
+		}
+		root := tview.NewTreeNode(fmt.Sprintf("📦 %s", a.activeConn.DisplayName())).SetColor(tcell.ColorAqua)
+		a.schemaTree.SetRoot(root).SetCurrentNode(root)
+
+		for schema := range newDataSchema {
+			schemaNode := tview.NewTreeNode(fmt.Sprintf("📁 %s", schema)).SetColor(tcell.ColorYellow).
+				SetSelectable(true).SetExpanded(true)
+			for _, table := range newDataSchema[schema] {
+				tableNode := tview.NewTreeNode(fmt.Sprintf("🗃️ %s", table)).SetColor(tcell.ColorWhite).
+					SetReference(fmt.Sprintf("%s.%s", schema, table)).SetSelectable(true)
+				schemaNode.AddChild(tableNode)
+			}
+			root.AddChild(schemaNode)
+		}
+
+	})
+	inputField.SetDisabled(true)
+	inputField.SetTitleColor(tcell.ColorAqua)
+	inputField.SetBorderColor(tcell.ColorDarkCyan)
+
+	return inputField
 }
 
 func (a *App) buildSchemaTree() *tview.TreeView {
@@ -393,13 +459,15 @@ func (a *App) buildStatusBar() *tview.TextView {
 func (a *App) BuildUI() {
 	a.connList = a.buildConnList()
 	a.schemaTree = a.buildSchemaTree()
+	a.filterTable = a.buildInputFieldTable()
 	a.tableView = a.buildTableView()
 
 	a.setStatus("Welcome To LazyDb TUI!")
 
 	a.leftFlex = tview.NewFlex().SetDirection(tview.FlexRow).
-		AddItem(a.connList, 0, 1, true).
-		AddItem(a.schemaTree, 0, 2, false)
+		AddItem(a.connList, 0, 2, true).
+		AddItem(a.filterTable, 1, 1, true).
+		AddItem(a.schemaTree, 0, 12, false)
 
 	mainFlex := tview.NewFlex().
 		AddItem(a.leftFlex, 0, 1, true).

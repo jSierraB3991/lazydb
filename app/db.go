@@ -34,6 +34,9 @@ func (a *App) disconnect() {
 	a.activeConn = nil
 	a.currentSchema = ""
 	a.currentTable = ""
+	a.filterTable.SetText("")
+	a.filterTable.SetDisabled(true)
+	a.schemaMap = nil
 
 	// Limpiar el árbol de schemas
 	root := tview.NewTreeNode("Sin conexión")
@@ -219,6 +222,7 @@ func (a *App) loadSchemas() {
 			a.setStatus(fmt.Sprintf("[red] Error get schema and tables %v[-]", err))
 		}
 	}
+	a.schemaMap = schemaMap
 	root := tview.NewTreeNode(fmt.Sprintf("📦 %s", a.activeConn.DisplayName())).SetColor(tcell.ColorAqua)
 	a.schemaTree.SetRoot(root).SetCurrentNode(root)
 
@@ -249,6 +253,8 @@ func (a *App) connectTo(conn *Connection) {
 	if a.activeDb != nil {
 		a.CloseDb()
 		a.activeDb = nil
+		a.schemaMap = nil
+		a.filterTable.SetText("")
 	}
 
 	go func() {
@@ -329,7 +335,7 @@ func (a *App) loadTableData(schema string, table string) {
 		rowIdx++
 	}
 	a.setStatus(fmt.Sprintf("[green]%s.%s - %d filas[-]", schema, table, rowIdx-1))
-	a.focusIndex = 2
+	a.focusIndex = 3
 	a.tviewApp.SetFocus(a.tableView)
 	a.updateBorders()
 }

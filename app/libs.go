@@ -37,6 +37,7 @@ const (
 	CONN_LIST_TITLE     string = " Conexiones "
 	NO_CONN_TEXT        string = " Sin conexiones "
 	SCHEMA_TABLES_TITLE string = " Schema / Tablas "
+	INPUT_FILTER_TITLE  string = " Búscar tabla "
 	TEXT_NEW_CONN       string = "[yellow]Espacio[-] Nueva conexión"
 	TEXT_CHANGE_FOCUS   string = "[yellow]Tab[-] Cambiar Foco"
 	TEXT_CONNECT        string = "[yellow]Enter[-] Conectar DB/Ver datos de la tabla/Editar Fila"
