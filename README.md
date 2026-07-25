@@ -87,7 +87,7 @@ El archivo de configuración tiene la siguiente estructura:
     "user": "mi_usuario",
     "password": "mi_password_encrypt",
     "database": "mi_db",
-    "allow_ssl: false
+    "allow_ssl": false
   }
 ]
 ```
