@@ -325,10 +325,17 @@ func (a *App) buildInputFieldTable() *tview.InputField {
 				if strings.Contains(strings.ToLower(schema), textLower) {
 					newDataSchema[schema] = a.schemaMap[schema]
 				} else {
+					var aloneTables []string
 					for _, table := range a.schemaMap[schema] {
-						if strings.Contains(strings.ToLower(table), textLower) {
-							newDataSchema[schema] = a.schemaMap[schema]
+
+						tableLower := strings.ToLower(table)
+						if strings.Contains(tableLower, textLower) {
+							aloneTables = append(aloneTables, strings.ToLower(table))
 						}
+
+					}
+					if len(aloneTables) >= 1 {
+						newDataSchema[schema] = aloneTables
 					}
 				}
 			}
