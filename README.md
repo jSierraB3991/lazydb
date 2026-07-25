@@ -85,8 +85,9 @@ El archivo de configuración tiene la siguiente estructura:
     "host": "localhost",
     "port": "5432",
     "user": "mi_usuario",
-    "password": "mi_password",
-    "database": "mi_db"
+    "password": "mi_password_encrypt",
+    "database": "mi_db",
+    "allow_ssl: false
   }
 ]
 ```
