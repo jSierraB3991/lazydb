@@ -92,9 +92,6 @@ El archivo de configuración tiene la siguiente estructura:
 ]
 ```
 
-### Variables de Entorno
-- **`LAZYDB_PORT`**: Puedes configurar esta variable opcional. Si se define, LazyDB validará que sea un número válido al iniciar la aplicación.
-
 ---
 
 ## ⌨️ Atajos de Teclado y Navegación
