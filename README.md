@@ -91,8 +91,9 @@ El archivo de configuración tiene la siguiente estructura:
   }
 ]
 ```
-
----
+### Variables de Entorno                                                                                                                                                                                
+- **`BASE_64_KEY`**: Define la llave bas64 para encriptar y desencriptar las password
+--
 
 ## ⌨️ Atajos de Teclado y Navegación
 
