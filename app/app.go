@@ -200,8 +200,8 @@ func (a *App) showAddConnectionModal() {
 	form.AddInputField(PORT, "5432", 6, nil, nil)
 	form.AddInputField(DB_NAME, "", 30, nil, nil)
 	form.AddInputField(USER, "", 30, nil, nil)
-	form.AddCheckbox(ALLOW_SSL, false, nil)
 	form.AddPasswordField(PASSWORD, "", 30, '*', nil)
+	form.AddCheckbox(ALLOW_SSL, false, nil)
 
 	form.AddButton(BTN_TEXT_SAVE, func() {
 		a.saveConfigConnection(form)

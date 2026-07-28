@@ -406,6 +406,7 @@ func (a *App) deleteSelectedRow() {
 				return
 			}
 			a.tableView.RemoveRow(row)
+			a.cycleFocus(0)
 			a.setStatus(fmt.Sprintf("[green]Fila eliminada de %s %s[-]", a.currentSchema, a.currentTable))
 		})
 
