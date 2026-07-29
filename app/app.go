@@ -21,6 +21,7 @@ type App struct {
 	schemaTree  *tview.TreeView
 	tableView   *tview.Table
 	leftFlex    *tview.Flex
+	rightFlex   *tview.Flex
 	pages       *tview.Pages
 	filterTable *tview.InputField
 	filterRow   *tview.InputField
@@ -29,6 +30,7 @@ type App struct {
 	currentTable  string
 	currentSchema string
 	baseKey       string
+	currentWhere  string
 
 	yankBuffer     string
 	yankCount      string
@@ -176,6 +178,7 @@ func (a *App) showConfirmDialog(message string, onConfirm func()) {
 	modal := tview.NewModal().SetText(message).AddButtons([]string{"Eliminar", "Cancelar"}).
 		SetDoneFunc(func(buttonIndex int, buttonLabel string) {
 			a.pages.RemovePage(CONFIRM_MODAL)
+			a.cycleFocus(0)
 			if buttonIndex == 0 {
 				onConfirm()
 			}
@@ -226,6 +229,7 @@ func (a *App) updateBorders() {
 	a.schemaTree.SetBorderColor(tcell.ColorDarkCyan)
 	a.tableView.SetBorderColor(tcell.ColorDarkCyan)
 	a.filterTable.SetBorderColor(tcell.ColorDarkCyan)
+	a.filterRow.SetBorderColor(tcell.ColorDarkCyan)
 
 	switch a.focusIndex {
 	case 0:
@@ -238,13 +242,16 @@ func (a *App) updateBorders() {
 		a.schemaTree.SetBorderColor(tcell.ColorYellow)
 		a.tviewApp.SetFocus(a.schemaTree)
 	case 3:
+		a.filterRow.SetBorderColor(tcell.ColorYellow)
+		a.tviewApp.SetFocus(a.filterRow)
+	case 4:
 		a.tableView.SetBorderColor(tcell.ColorYellow)
 		a.tviewApp.SetFocus(a.tableView)
 	}
 }
 
 func (a *App) cycleFocus(delta int) {
-	panels := []tview.Primitive{a.connList, a.filterTable, a.schemaTree, a.tableView}
+	panels := []tview.Primitive{a.connList, a.filterTable, a.schemaTree, a.filterRow, a.tableView}
 	a.focusIndex = (a.focusIndex + delta + len(panels)) % len(panels)
 	a.updateBorders()
 }
@@ -299,8 +306,44 @@ func (a *App) buildConnList() *tview.List {
 	return list
 }
 
+func (a *App) buildInputFieldRow() *tview.InputField {
+	inputField := tview.NewInputField().SetLabel(" / ")
+	inputField.SetLabelColor(tcell.ColorYellow)
+	inputField.SetFieldBackgroundColor(tcell.ColorDarkSlateGray)
+	inputField.SetBorder(true)
+	inputField.SetDisabled(true)
+	inputField.SetTitleColor(tcell.ColorAqua)
+	inputField.SetFieldTextColor(tcell.ColorWhite)
+	inputField.SetBorderColor(tcell.ColorDarkCyan)
+
+	inputField.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		switch event.Key() {
+		case tcell.KeyEnter:
+			a.loadTableData(a.currentSchema, a.currentTable, a.filterRow.GetText())
+		case tcell.KeyTab:
+			a.cycleFocus(1)
+			return nil
+		case tcell.KeyBacktab:
+			a.cycleFocus(-1)
+			return nil
+
+		}
+		return event
+	})
+
+	return inputField
+
+}
+
 func (a *App) buildInputFieldTable() *tview.InputField {
-	inputField := tview.NewInputField().SetLabel(INPUT_FILTER_TITLE) //.SetBorder(true)
+	inputField := tview.NewInputField().SetLabel(INPUT_FILTER_TITLE)
+	inputField.SetLabelColor(tcell.ColorYellow)
+	inputField.SetFieldBackgroundColor(tcell.ColorDarkSlateGray)
+	inputField.SetBorder(true)
+	inputField.SetDisabled(true)
+	inputField.SetTitleColor(tcell.ColorAqua)
+	inputField.SetFieldTextColor(tcell.ColorWhite)
+	inputField.SetBorderColor(tcell.ColorDarkCyan)
 
 	inputField.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch event.Key() {
@@ -358,9 +401,6 @@ func (a *App) buildInputFieldTable() *tview.InputField {
 		}
 
 	})
-	inputField.SetDisabled(true)
-	inputField.SetTitleColor(tcell.ColorAqua)
-	inputField.SetBorderColor(tcell.ColorDarkCyan)
 
 	return inputField
 }
@@ -386,7 +426,9 @@ func (a *App) buildSchemaTree() *tview.TreeView {
 			if len(parts) == 2 {
 				a.currentSchema = parts[0]
 				a.currentTable = parts[1]
-				a.loadTableData(parts[0], parts[1])
+				a.filterRow.SetText("")
+				a.filterRow.SetDisabled(false)
+				a.loadTableData(parts[0], parts[1], "")
 			}
 		}
 	})
@@ -399,6 +441,8 @@ func (a *App) buildSchemaTree() *tview.TreeView {
 		case tcell.KeyBacktab:
 			a.cycleFocus(-1)
 			return nil
+		case tcell.KeyDelete:
+			a.removeSelectedTable()
 		}
 		return event
 	})
@@ -470,18 +514,22 @@ func (a *App) BuildUI() {
 	a.connList = a.buildConnList()
 	a.schemaTree = a.buildSchemaTree()
 	a.filterTable = a.buildInputFieldTable()
+	a.filterRow = a.buildInputFieldRow()
 	a.tableView = a.buildTableView()
 
 	a.setStatus("Welcome To LazyDb TUI!")
 
 	a.leftFlex = tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(a.connList, 0, 2, true).
-		AddItem(a.filterTable, 1, 1, true).
+		AddItem(a.filterTable, 3, 0, false).
 		AddItem(a.schemaTree, 0, 12, false)
+	a.rightFlex = tview.NewFlex().SetDirection(tview.FlexRow).
+		AddItem(a.filterRow, 3, 0, false).
+		AddItem(a.tableView, 0, 1, true)
 
 	mainFlex := tview.NewFlex().
 		AddItem(a.leftFlex, 0, 1, true).
-		AddItem(a.tableView, 0, 3, false)
+		AddItem(a.rightFlex, 0, 3, false)
 
 	rootFlex := tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(mainFlex, 0, 1, true).
@@ -493,12 +541,10 @@ func (a *App) BuildUI() {
 
 	a.tviewApp.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch event.Key() {
-		case tcell.KeyRune:
-			if event.Rune() == ' ' {
-				name, _ := a.pages.GetFrontPage()
-				if name == MAIN_PAGE {
-					a.showAddConnectionModal()
-				}
+		case tcell.KeyCtrlA:
+			name, _ := a.pages.GetFrontPage()
+			if name == MAIN_PAGE {
+				a.showAddConnectionModal()
 			}
 		case tcell.KeyCtrlC:
 			if a.activeDb != nil {

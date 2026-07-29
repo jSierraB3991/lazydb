@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 
 	"github.com/atotto/clipboard"
+	"github.com/rivo/tview"
 )
 
 type DBType string
@@ -47,6 +49,10 @@ const (
 	TEXT_CREATE_DB      string = "[yellow]Ctrl+B[-] Crear Base de Datos (Necesitas una conexión activa)"
 	COLUMN_ID_GENERIC   string = "id"
 	BASE_KEY_STRING     string = "BASE_64_KEY"
+)
+
+var (
+	EMOJIREGEX = regexp.MustCompile(`^[\p{So}\p{Sk}\p{Mn}\x{fe0f}\n\r\t]+`)
 )
 
 func configPath() string {
@@ -109,4 +115,18 @@ func copyToClipboard(dataToCopy []map[string]string) error {
 		return err
 	}
 	return clipboard.WriteAll(string(jsonBytes))
+}
+
+// Función auxiliar para buscar recursivamente al padre de un nodo en tview
+func findParent(current, target *tview.TreeNode) *tview.TreeNode {
+	for _, child := range current.GetChildren() {
+		if child == target {
+			return current
+		}
+		// Seguir buscando en profundidad si el hijo tiene sub-nodos
+		if found := findParent(child, target); found != nil {
+			return found
+		}
+	}
+	return nil
 }

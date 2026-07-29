@@ -36,6 +36,7 @@ func (a *App) disconnect() {
 	a.currentTable = ""
 	a.schemaMap = nil
 	a.filterTable.SetText("")
+	a.filterRow.SetText("")
 	a.filterTable.SetDisabled(true)
 
 	// Limpiar el árbol de schemas
@@ -181,7 +182,7 @@ func (a *App) updateSelectedRow(form *tview.Form) {
 		a.setStatus(fmt.Sprintf("[red]Error Update Row %d: %v[-]", row, err))
 		return
 	}
-	a.loadTableData(a.currentSchema, a.currentTable)
+	a.loadTableData(a.currentSchema, a.currentTable, a.currentWhere)
 	a.setStatus("[green]Columna actualizada[-]")
 
 }
@@ -255,6 +256,7 @@ func (a *App) connectTo(conn *Connection) {
 		a.activeDb = nil
 		a.schemaMap = nil
 		a.filterTable.SetText("")
+		a.filterRow.SetText("")
 	}
 
 	go func() {
@@ -279,7 +281,7 @@ func (a *App) connectTo(conn *Connection) {
 
 }
 
-func (a *App) loadTableData(schema string, table string) {
+func (a *App) loadTableData(schema string, table string, whereFilter string) {
 	if a.activeDb == nil {
 		return
 	}
@@ -287,6 +289,9 @@ func (a *App) loadTableData(schema string, table string) {
 	a.tableView.Clear()
 
 	query := fmt.Sprintf(`SELECT * FROM "%s"."%s"`, schema, table)
+	if strings.Trim(whereFilter, "") != "" {
+		query += fmt.Sprintf(" WHERE %s", whereFilter)
+	}
 	rows, err := a.activeDb.Query(query)
 	if err != nil {
 		a.setStatus(fmt.Sprintf("[red]Error al leer la tabla: %v[-], %s", err, query))
@@ -335,7 +340,9 @@ func (a *App) loadTableData(schema string, table string) {
 		rowIdx++
 	}
 	a.setStatus(fmt.Sprintf("[green]%s.%s - %d filas[-]", schema, table, rowIdx-1))
-	a.focusIndex = 3
+	if rowIdx-1 >= 1 {
+		a.cycleFocus(1)
+	}
 	a.tviewApp.SetFocus(a.tableView)
 	a.updateBorders()
 }
@@ -440,4 +447,47 @@ func saveConnections(baseKey string, setStatus func(msg string), conns []Connect
 	if err != nil {
 		setStatus(fmt.Sprintf("[red]Error saving connection %v[-]", err))
 	}
+}
+func (a *App) removeSelectedTable() {
+	if a.activeDb == nil {
+		a.setStatus("[red]No hay conexión activa[-]")
+		return
+	}
+
+	currentNode := a.schemaTree.GetCurrentNode()
+	if currentNode == nil || len(currentNode.GetChildren()) > 0 {
+		a.setStatus("[red]No hay tabla seleccionada[-]")
+		return
+	}
+
+	schema := findParent(a.schemaTree.GetRoot(), currentNode).GetText()
+	table := currentNode.GetText()
+	cleanSchema := strings.TrimSpace(EMOJIREGEX.ReplaceAllString(schema, ""))
+	cleanTable := strings.TrimSpace(EMOJIREGEX.ReplaceAllString(table, ""))
+
+	a.showConfirmDialog(
+		fmt.Sprintf("¿Eliminar tabla %s.%s?\nEsta acción no se puede deshacer.", cleanSchema, cleanTable),
+		func() {
+			_, err := a.activeDb.Exec(fmt.Sprintf(`DROP TABLE "%s"."%s"`, cleanSchema, cleanTable))
+			if err != nil {
+				a.setStatus("[red]Error eliminando tabla: " + err.Error() + "[-]")
+				return
+			}
+
+			// Quitar el nodo del árbol
+			parent := findParent(a.schemaTree.GetRoot(), currentNode)
+			parent.RemoveChild(currentNode)
+
+			// Limpiar la tabla si era la activa
+			if a.currentSchema == cleanSchema && a.currentTable == cleanTable {
+				a.tableView.Clear()
+				a.tableView.SetTitle(" Datos ")
+				a.currentSchema = ""
+				a.currentTable = ""
+			}
+
+			a.setStatus(fmt.Sprintf("[green]Tabla %s.%s eliminada[-]", cleanSchema, cleanTable))
+			a.cycleFocus(0)
+		},
+	)
 }
