@@ -18,6 +18,7 @@ const (
 )
 
 const (
+	POSTGRES   string = "postgres"
 	NAME       string = "Nombre (Opcional)"
 	MANAGEMENT string = "Gestor"
 	HOST       string = "host"
@@ -35,18 +36,19 @@ const (
 
 	BTN_TEXT_SAVE       string = "Guardar"
 	BTN_TEXT_CANCEL     string = "Cancelar"
+	BTN_TEXT_PING       string = "Ping"
 	TABLE_VIEW_TITLE    string = " Datos "
 	CONN_LIST_TITLE     string = " Conexiones "
 	NO_CONN_TEXT        string = " Sin conexiones "
 	SCHEMA_TABLES_TITLE string = " Schema / Tablas "
 	INPUT_FILTER_TITLE  string = " Búscar tabla "
-	TEXT_NEW_CONN       string = "[yellow]Espacio[-] Nueva conexión"
+	TEXT_NEW_CONN       string = "[yellow]Ctrl+a[-] Nueva conexión"
 	TEXT_CHANGE_FOCUS   string = "[yellow]Tab[-] Cambiar Foco"
 	TEXT_CONNECT        string = "[yellow]Enter[-] Conectar DB/Ver datos de la tabla/Editar Fila"
 	TEXT_DELETE         string = "[yellow]Delete[-] Eliminar"
-	TEXT_QUIT           string = "[yellow]Ctrl+C[-] Salir"
-	TEXT_DISCONNECT     string = "[yellow]Ctrl+D[-] Desconectar"
-	TEXT_CREATE_DB      string = "[yellow]Ctrl+B[-] Crear Base de Datos (Necesitas una conexión activa)"
+	TEXT_QUIT           string = "[yellow]Ctrl+c[-] Salir"
+	TEXT_DISCONNECT     string = "[yellow]Ctrl+d[-] Desconectar"
+	TEXT_CREATE_DB      string = "[yellow]Ctrl+b[-] Crear Base de Datos (Necesitas una conexión activa)"
 	COLUMN_ID_GENERIC   string = "id"
 	BASE_KEY_STRING     string = "BASE_64_KEY"
 )

@@ -4,6 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
+
+	"github.com/google/uuid"
+	"github.com/rivo/tview"
 
 	eliotlibs "github.com/jSierraB3991/jsierra-libs"
 )
@@ -37,6 +41,15 @@ func (c Connection) DSN(baseKey string) string {
 		c.Host, c.Port, c.User, password, c.DatabaseName, sslConfig)
 }
 
+func (c Connection) DSNUnEncrypt() string {
+	sslConfig := "disable"
+	if c.AllowSsl {
+		sslConfig = "allow"
+	}
+	return fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
+		c.Host, c.Port, c.User, c.Password, c.DatabaseName, sslConfig)
+}
+
 func (c Connection) DisplayName() string {
 	if c.Name != "" {
 		return c.Name
@@ -56,4 +69,78 @@ func localConnections() ([]Connection, error) {
 		return nil, err
 	}
 	return conns, nil
+}
+
+func saveConnections(baseKey string, setStatus func(msg string), conns []Connection) {
+	path := configPath()
+	err := os.MkdirAll(filepath.Dir(path), 0755)
+	if err != nil {
+		setStatus(fmt.Sprintf("[red]Error verify folder of connection %v[-]", err))
+		return
+	}
+
+	for i := range conns {
+		if conns[i].Id == "" {
+			conns[i].Id = uuid.New().String()
+			passwordEncript, err := eliotlibs.Encrypt(conns[i].Password, baseKey)
+			if err != nil {
+				setStatus(fmt.Sprintf("[red]Error encriptando pass: %v[-]", err))
+				return
+			}
+			conns[i].Password = passwordEncript
+			conns[i].IsEncrypted = true
+		}
+	}
+	data, err := json.MarshalIndent(conns, "", "  ")
+	if err != nil {
+		setStatus(fmt.Sprintf("[red]Error convirtiendo la conexión en json %v[-]", err))
+	}
+	err = os.WriteFile(path, data, 0600)
+	if err != nil {
+		setStatus(fmt.Sprintf("[red]Error saving connection %v[-]", err))
+	}
+}
+
+func (a *App) deleteConnection(idx int) {
+	if idx < 0 || idx >= len(a.connections) {
+		return
+	}
+	name := a.connections[idx].DisplayName()
+	a.showConfirmDialog(fmt.Sprintf("¿Eliminar conexión '%s'?", name), func() {
+		a.connections = append(a.connections[:idx], a.connections[idx+1:]...)
+		saveConnections(a.baseKey, a.setStatus, a.connections)
+		a.rebuildConnList()
+		if a.activeConn.DisplayName() == name {
+			a.disconnect()
+		}
+		a.setStatus(fmt.Sprintf("[yellow]Conexión '%s' eliminada[-]", name))
+	})
+}
+
+func (a *App) disconnect() {
+	if a.activeDb == nil {
+		a.setStatus("[yellow]No hay conexión activa[-]")
+		return
+	}
+
+	name := a.activeConn.DisplayName()
+	a.activeDb.Close()
+	a.activeDb = nil
+	a.activeConn = nil
+	a.currentSchema = ""
+	a.currentTable = ""
+	a.schemaMap = nil
+	a.filterTable.SetText("")
+	a.filterRow.SetText("")
+	a.filterTable.SetDisabled(true)
+
+	// Limpiar el árbol de schemas
+	root := tview.NewTreeNode("Sin conexión")
+	a.schemaTree.SetRoot(root).SetCurrentNode(root)
+
+	// Limpiar la tabla
+	a.tableView.Clear()
+	a.tableView.SetTitle(" Datos ")
+
+	a.setStatus(fmt.Sprintf("[yellow]Desconectado de %s[-]", name))
 }

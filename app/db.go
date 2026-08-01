@@ -2,14 +2,8 @@ package app
 
 import (
 	"database/sql"
-	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
-
-	"github.com/google/uuid"
-	eliotlibs "github.com/jSierraB3991/jsierra-libs"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -20,34 +14,6 @@ import (
 type TableEntry struct {
 	schema string
 	table  string
-}
-
-func (a *App) disconnect() {
-	if a.activeDb == nil {
-		a.setStatus("[yellow]No hay conexión activa[-]")
-		return
-	}
-
-	name := a.activeConn.DisplayName()
-	a.activeDb.Close()
-	a.activeDb = nil
-	a.activeConn = nil
-	a.currentSchema = ""
-	a.currentTable = ""
-	a.schemaMap = nil
-	a.filterTable.SetText("")
-	a.filterRow.SetText("")
-	a.filterTable.SetDisabled(true)
-
-	// Limpiar el árbol de schemas
-	root := tview.NewTreeNode("Sin conexión")
-	a.schemaTree.SetRoot(root).SetCurrentNode(root)
-
-	// Limpiar la tabla
-	a.tableView.Clear()
-	a.tableView.SetTitle(" Datos ")
-
-	a.setStatus(fmt.Sprintf("[yellow]Desconectado de %s[-]", name))
 }
 
 func (a *App) showCreateDatabaseDialog() {
@@ -260,7 +226,7 @@ func (a *App) connectTo(conn *Connection) {
 	}
 
 	go func() {
-		db, err := sql.Open("postgres", conn.DSN(a.baseKey))
+		db, err := sql.Open(POSTGRES, conn.DSN(a.baseKey))
 		a.tviewApp.QueueUpdateDraw(func() {
 
 			defer a.hideLoadingDialog()
@@ -347,19 +313,6 @@ func (a *App) loadTableData(schema string, table string, whereFilter string) {
 	a.updateBorders()
 }
 
-func (a *App) deleteConnection(idx int) {
-	if idx < 0 || idx >= len(a.connections) {
-		return
-	}
-	name := a.connections[idx].DisplayName()
-	a.showConfirmDialog(fmt.Sprintf("¿Eliminar conexión '%s'?", name), func() {
-		a.connections = append(a.connections[:idx], a.connections[idx+1:]...)
-		saveConnections(a.baseKey, a.setStatus, a.connections)
-		a.rebuildConnList()
-		a.setStatus(fmt.Sprintf("[yellow]Conexión '%s' eliminada[[-]", name))
-	})
-}
-
 func (a *App) deleteSelectedRow() {
 	if a.activeDb == nil || a.currentTable == "" {
 		return
@@ -419,35 +372,6 @@ func (a *App) deleteSelectedRow() {
 
 }
 
-func saveConnections(baseKey string, setStatus func(msg string), conns []Connection) {
-	path := configPath()
-	err := os.MkdirAll(filepath.Dir(path), 0755)
-	if err != nil {
-		setStatus(fmt.Sprintf("[red]Error verify folder of connection %v[-]", err))
-		return
-	}
-
-	for i := range conns {
-		if conns[i].Id == "" {
-			conns[i].Id = uuid.New().String()
-			passwordEncript, err := eliotlibs.Encrypt(conns[i].Password, baseKey)
-			if err != nil {
-				setStatus(fmt.Sprintf("[red]Error encriptando pass: %v[-]", err))
-				return
-			}
-			conns[i].Password = passwordEncript
-			conns[i].IsEncrypted = true
-		}
-	}
-	data, err := json.MarshalIndent(conns, "", "  ")
-	if err != nil {
-		setStatus(fmt.Sprintf("[red]Error convirtiendo la conexión en json %v[-]", err))
-	}
-	err = os.WriteFile(path, data, 0600)
-	if err != nil {
-		setStatus(fmt.Sprintf("[red]Error saving connection %v[-]", err))
-	}
-}
 func (a *App) removeSelectedTable() {
 	if a.activeDb == nil {
 		a.setStatus("[red]No hay conexión activa[-]")

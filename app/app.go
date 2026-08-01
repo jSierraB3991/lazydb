@@ -197,7 +197,7 @@ func (a *App) showAddConnectionModal() {
 	form.SetLabelColor(tcell.ColorAqua)
 	form.SetButtonBackgroundColor(tcell.ColorDarkCyan)
 
-	form.AddDropDown(MANAGEMENT, []string{"postgres"}, 0, nil)
+	form.AddDropDown(MANAGEMENT, []string{POSTGRES}, 0, nil)
 	form.AddInputField(NAME, "", 30, nil, nil)
 	form.AddInputField(HOST, "localhost", 30, nil, nil)
 	form.AddInputField(PORT, "5432", 6, nil, nil)
@@ -205,6 +205,42 @@ func (a *App) showAddConnectionModal() {
 	form.AddInputField(USER, "", 30, nil, nil)
 	form.AddPasswordField(PASSWORD, "", 30, '*', nil)
 	form.AddCheckbox(ALLOW_SSL, false, nil)
+
+	form.AddButton(BTN_TEXT_PING, func() {
+		dbTypeStr := POSTGRES
+		nameDb := form.GetFormItemByLabel(NAME).(*tview.InputField).GetText()
+		a.setStatus(fmt.Sprintf("[yellow]Ping to type: %s database: %s[-]", dbTypeStr, nameDb))
+		port := form.GetFormItemByLabel(PORT).(*tview.InputField).GetText()
+		host := form.GetFormItemByLabel(HOST).(*tview.InputField).GetText()
+		dbname := form.GetFormItemByLabel(DB_NAME).(*tview.InputField).GetText()
+		user := form.GetFormItemByLabel(USER).(*tview.InputField).GetText()
+		allowSsl := form.GetFormItemByLabel(ALLOW_SSL).(*tview.Checkbox).IsChecked()
+		password := form.GetFormItemByLabel(PASSWORD).(*tview.InputField).GetText()
+
+		conn := Connection{
+			Name:         nameDb,
+			Type:         DBType(dbTypeStr),
+			Host:         host,
+			Port:         port,
+			DatabaseName: dbname,
+			User:         user,
+			Password:     password,
+			IsEncrypted:  false,
+			AllowSsl:     allowSsl,
+		}
+
+		db, err := sql.Open(POSTGRES, conn.DSNUnEncrypt())
+		if err != nil {
+			a.setStatus(fmt.Sprintf("[red]Error: al tratar de conectar %v[-]", err))
+			return
+		}
+		if err := db.Ping(); err != nil {
+			a.setStatus(fmt.Sprintf("[red]Error al hacer Ping %v[-]", err))
+			a.CloseDb()
+			return
+		}
+		a.setStatus(fmt.Sprintf("[green]Ping exitoso a la base de datos: %s[-]", dbname))
+	})
 
 	form.AddButton(BTN_TEXT_SAVE, func() {
 		a.saveConfigConnection(form)
