@@ -1,6 +1,7 @@
 package app
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -8,17 +9,37 @@ import (
 	"regexp"
 
 	"github.com/atotto/clipboard"
+	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
 type DBType string
 
 const (
-	DBPostgres DBType = "postgres"
+	DBPostgres  DBType = "postgres"
+	DBMySQL     DBType = "mysql"
+	DBSQLServer DBType = "sqlserver"
+	DBMongoDB   DBType = "mongodb"
 )
 
+func (d DBType) String() string {
+	return string(d)
+}
+
+func (d DBType) GetSelect(schema, table string) string {
+	switch d {
+	case DBPostgres:
+		return fmt.Sprintf(`SELECT * FROM "%s"."%s"`, schema, table)
+	case DBMySQL:
+		return fmt.Sprintf("SELECT * FROM `%s`", table)
+	case DBSQLServer:
+		return fmt.Sprintf("SELECT * FROM [%s].[%s]", schema, table)
+	default:
+		return fmt.Sprintf(`SELECT * FROM "%s"."%s"`, schema, table)
+	}
+}
+
 const (
-	POSTGRES   string = "postgres"
 	NAME       string = "Nombre (Opcional)"
 	MANAGEMENT string = "Gestor"
 	HOST       string = "host"
@@ -131,4 +152,72 @@ func findParent(current, target *tview.TreeNode) *tview.TreeNode {
 		}
 	}
 	return nil
+}
+
+func getDbIdx(dbType DBType, dbAvailable []string) int {
+	if dbType == "" {
+		return 0
+	}
+	for i, db := range dbAvailable {
+		if db == dbType.String() {
+			return i
+		}
+	}
+	return 0
+}
+func (a *App) getFormToConnect(data Connection) *tview.Form {
+	form := tview.NewForm()
+	form.SetBorder(true).SetTitle(" Nueva Conexión ").SetTitleColor(tcell.ColorAqua)
+	form.SetBorderColor(tcell.ColorYellow)
+	form.SetFieldBackgroundColor(tcell.ColorDarkSlateGray)
+	form.SetFieldTextColor(tcell.ColorWhite)
+	form.SetLabelColor(tcell.ColorAqua)
+	form.SetButtonBackgroundColor(tcell.ColorDarkCyan)
+
+	dbAvailable := []string{DBPostgres.String(), DBMySQL.String()}
+	form.AddDropDown(MANAGEMENT, dbAvailable, getDbIdx(data.Type, dbAvailable), nil)
+	form.AddInputField(NAME, data.Name, 30, nil, nil)
+	form.AddInputField(HOST, data.Host, 30, nil, nil)
+	form.AddInputField(PORT, data.Port, 6, nil, nil)
+	form.AddInputField(DB_NAME, data.DatabaseName, 30, nil, nil)
+	form.AddInputField(USER, data.User, 30, nil, nil)
+	form.AddPasswordField(PASSWORD, "", 30, '*', nil)
+	form.AddCheckbox(ALLOW_SSL, data.AllowSsl, nil)
+
+	form.AddButton(BTN_TEXT_PING, func() {
+		_, labelDriver := form.GetFormItemByLabel(MANAGEMENT).(*tview.DropDown).GetCurrentOption()
+		nameDb := form.GetFormItemByLabel(NAME).(*tview.InputField).GetText()
+		a.setStatus(fmt.Sprintf("[yellow]Ping to type: %s database: %s[-]", labelDriver, nameDb))
+		port := form.GetFormItemByLabel(PORT).(*tview.InputField).GetText()
+		host := form.GetFormItemByLabel(HOST).(*tview.InputField).GetText()
+		dbname := form.GetFormItemByLabel(DB_NAME).(*tview.InputField).GetText()
+		user := form.GetFormItemByLabel(USER).(*tview.InputField).GetText()
+		allowSsl := form.GetFormItemByLabel(ALLOW_SSL).(*tview.Checkbox).IsChecked()
+		password := form.GetFormItemByLabel(PASSWORD).(*tview.InputField).GetText()
+
+		conn := Connection{
+			Name:         nameDb,
+			Type:         DBType(labelDriver),
+			Host:         host,
+			Port:         port,
+			DatabaseName: dbname,
+			User:         user,
+			Password:     password,
+			IsEncrypted:  false,
+			AllowSsl:     allowSsl,
+		}
+
+		db, err := sql.Open(labelDriver, conn.DSNUnEncrypt())
+		if err != nil {
+			a.setStatus(fmt.Sprintf("[red]Error: al tratar de conectar %s %v [-] ", labelDriver, err))
+			return
+		}
+		if err := db.Ping(); err != nil {
+			a.setStatus(fmt.Sprintf("[red]Error al hacer Ping %v[-]", err))
+			a.CloseDb()
+			return
+		}
+		a.setStatus(fmt.Sprintf("[green]Ping exitoso a la base de datos: %s[-]", dbname))
+	})
+	return form
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 
+	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
 )
 
@@ -81,6 +82,32 @@ func (a *App) showCreateDatabaseDialog() {
 		AddItem(nil, 0, 1, false)
 
 	a.pages.AddPage("createdb", modalV, true, true)
+	a.tviewApp.SetFocus(form)
+}
+
+func (a *App) showEditConnectionDialog(idx int) {
+	if idx < 0 || idx >= len(a.connections) {
+		return
+	}
+	connecEdit := a.connections[idx]
+	form := a.getFormToConnect(connecEdit)
+
+	form.AddButton(BTN_TEXT_SAVE, func() {
+		a.deleteConnectionOnClick(idx)
+		a.saveConfigConnection(form)
+	})
+
+	form.AddButton(BTN_TEXT_CANCEL, a.removeAddConn)
+	form.SetCancelFunc(a.removeAddConn)
+
+	modal := tview.NewFlex().
+		AddItem(nil, 0, 1, false).
+		AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
+			AddItem(nil, 0, 1, false).
+			AddItem(form, 22, 0, true).
+			AddItem(nil, 0, 1, false), 50, 0, true).
+		AddItem(nil, 0, 1, false)
+	a.pages.AddPage(ADD_CONN_MODAL, modal, true, true)
 	a.tviewApp.SetFocus(form)
 }
 
@@ -226,7 +253,7 @@ func (a *App) connectTo(conn *Connection) {
 	}
 
 	go func() {
-		db, err := sql.Open(POSTGRES, conn.DSN(a.baseKey))
+		db, err := sql.Open(conn.Type.String(), conn.DSN(a.baseKey))
 		a.tviewApp.QueueUpdateDraw(func() {
 
 			defer a.hideLoadingDialog()
@@ -244,7 +271,6 @@ func (a *App) connectTo(conn *Connection) {
 			a.loadSchemas()
 		})
 	}()
-
 }
 
 func (a *App) loadTableData(schema string, table string, whereFilter string) {
@@ -254,7 +280,7 @@ func (a *App) loadTableData(schema string, table string, whereFilter string) {
 
 	a.tableView.Clear()
 
-	query := fmt.Sprintf(`SELECT * FROM "%s"."%s"`, schema, table)
+	query := a.activeConn.Type.GetSelect(schema, table)
 	if strings.Trim(whereFilter, "") != "" {
 		query += fmt.Sprintf(" WHERE %s", whereFilter)
 	}
@@ -298,7 +324,12 @@ func (a *App) loadTableData(schema string, table string, whereFilter string) {
 		for i, val := range vals {
 			text := ""
 			if val != nil {
-				text = fmt.Sprintf("%v", val)
+				switch v := val.(type) {
+				case []byte:
+					text = string(v)
+				default:
+					text = fmt.Sprintf("%v", v)
+				}
 			}
 			cell := tview.NewTableCell(text).SetExpansion(1).SetTextColor(tcell.ColorWhite)
 			a.tableView.SetCell(rowIdx, i, cell)

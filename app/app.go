@@ -86,7 +86,19 @@ func (a *App) saveConfigConnection(form *tview.Form) {
 func (a *App) rebuildConnList() {
 	a.connList.Clear()
 	for _, c := range a.connections {
-		icon := "🐘"
+		icon := func(typeDb string) string {
+			switch typeDb {
+			case DBPostgres.String():
+				return "🐘"
+			case DBMySQL.String():
+				return "🐬"
+			case DBMongoDB.String():
+				return "🍃"
+			case DBSQLServer.String():
+				return "🛢"
+			}
+			return "⛃"
+		}(string(c.Type))
 		a.connList.AddItem(icon+" "+c.DisplayName(), "", 0, func() {
 			a.connectTo(&c)
 		})
@@ -189,58 +201,7 @@ func (a *App) showConfirmDialog(message string, onConfirm func()) {
 }
 
 func (a *App) showAddConnectionModal() {
-	form := tview.NewForm()
-	form.SetBorder(true).SetTitle(" Nueva Conexión ").SetTitleColor(tcell.ColorAqua)
-	form.SetBorderColor(tcell.ColorYellow)
-	form.SetFieldBackgroundColor(tcell.ColorDarkSlateGray)
-	form.SetFieldTextColor(tcell.ColorWhite)
-	form.SetLabelColor(tcell.ColorAqua)
-	form.SetButtonBackgroundColor(tcell.ColorDarkCyan)
-
-	form.AddDropDown(MANAGEMENT, []string{POSTGRES}, 0, nil)
-	form.AddInputField(NAME, "", 30, nil, nil)
-	form.AddInputField(HOST, "localhost", 30, nil, nil)
-	form.AddInputField(PORT, "5432", 6, nil, nil)
-	form.AddInputField(DB_NAME, "", 30, nil, nil)
-	form.AddInputField(USER, "", 30, nil, nil)
-	form.AddPasswordField(PASSWORD, "", 30, '*', nil)
-	form.AddCheckbox(ALLOW_SSL, false, nil)
-
-	form.AddButton(BTN_TEXT_PING, func() {
-		dbTypeStr := POSTGRES
-		nameDb := form.GetFormItemByLabel(NAME).(*tview.InputField).GetText()
-		a.setStatus(fmt.Sprintf("[yellow]Ping to type: %s database: %s[-]", dbTypeStr, nameDb))
-		port := form.GetFormItemByLabel(PORT).(*tview.InputField).GetText()
-		host := form.GetFormItemByLabel(HOST).(*tview.InputField).GetText()
-		dbname := form.GetFormItemByLabel(DB_NAME).(*tview.InputField).GetText()
-		user := form.GetFormItemByLabel(USER).(*tview.InputField).GetText()
-		allowSsl := form.GetFormItemByLabel(ALLOW_SSL).(*tview.Checkbox).IsChecked()
-		password := form.GetFormItemByLabel(PASSWORD).(*tview.InputField).GetText()
-
-		conn := Connection{
-			Name:         nameDb,
-			Type:         DBType(dbTypeStr),
-			Host:         host,
-			Port:         port,
-			DatabaseName: dbname,
-			User:         user,
-			Password:     password,
-			IsEncrypted:  false,
-			AllowSsl:     allowSsl,
-		}
-
-		db, err := sql.Open(POSTGRES, conn.DSNUnEncrypt())
-		if err != nil {
-			a.setStatus(fmt.Sprintf("[red]Error: al tratar de conectar %v[-]", err))
-			return
-		}
-		if err := db.Ping(); err != nil {
-			a.setStatus(fmt.Sprintf("[red]Error al hacer Ping %v[-]", err))
-			a.CloseDb()
-			return
-		}
-		a.setStatus(fmt.Sprintf("[green]Ping exitoso a la base de datos: %s[-]", dbname))
-	})
+	form := a.getFormToConnect(Connection{})
 
 	form.AddButton(BTN_TEXT_SAVE, func() {
 		a.saveConfigConnection(form)
@@ -303,7 +264,19 @@ func (a *App) buildConnList() *tview.List {
 	list.SetHighlightFullLine(true)
 
 	for _, c := range a.connections {
-		icon := "🐘"
+		icon := func(typeDb string) string {
+			switch typeDb {
+			case DBPostgres.String():
+				return "🐘"
+			case DBMySQL.String():
+				return "🐬"
+			case DBMongoDB.String():
+				return "🍃"
+			case DBSQLServer.String():
+				return "🛢"
+			}
+			return "⛃"
+		}(string(c.Type))
 		list.AddItem(icon+" "+c.DisplayName(), "", 0, func() {
 			a.connectTo(&c)
 		})
@@ -327,12 +300,19 @@ func (a *App) buildConnList() *tview.List {
 				a.deleteConnection(idx)
 			}
 			return nil
-		}
-		if event.Key() == tcell.KeyCtrlB {
+		case tcell.KeyRune:
+			switch event.Rune() {
+			case 'u', 'U':
+				idx := list.GetCurrentItem()
+				if idx >= 0 && idx < len(a.connections) {
+					a.showEditConnectionDialog(idx) // o el nombre que uses
+				}
+				return nil
+			}
+		case tcell.KeyCtrlB:
 			a.showCreateDatabaseDialog()
 			return nil
-		}
-		if event.Key() == tcell.KeyCtrlD {
+		case tcell.KeyCtrlD:
 			a.disconnect()
 			return nil
 		}

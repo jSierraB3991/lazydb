@@ -25,7 +25,7 @@ type Connection struct {
 	AllowSsl     bool   `json:"allow_ssl"`
 }
 
-func (c Connection) DSN(baseKey string) string {
+func (c Connection) DSNPre(baseKey string) string {
 	password := c.Password
 	if c.IsEncrypted {
 		passwordDecrypt, err := eliotlibs.Decrypt(c.Password, baseKey)
@@ -40,14 +40,64 @@ func (c Connection) DSN(baseKey string) string {
 	return fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
 		c.Host, c.Port, c.User, password, c.DatabaseName, sslConfig)
 }
+func (c Connection) DSN(baseKey string) string {
+	password := c.Password
+	if c.IsEncrypted {
+		passwordDecrypt, err := eliotlibs.Decrypt(c.Password, baseKey)
+		if err == nil {
+			password = passwordDecrypt
+		}
+	}
+
+	var format, extra string
+	switch c.Type {
+	case "mysql":
+		format = "%s:%s@tcp(%s:%s)/%s?tls=%s&parseTime=true"
+		extra = "false"
+		if c.AllowSsl {
+			extra = "true"
+		}
+	case "sqlserver":
+		format = "sqlserver://%s:%s@%s:%s?database=%s&encrypt=%s"
+		extra = "disable"
+		if c.AllowSsl {
+			extra = "true"
+		}
+	default: // postgres
+		format = "user=%s password=%s host=%s port=%s dbname=%s sslmode=%s"
+		extra = "disable"
+		if c.AllowSsl {
+			extra = "allow"
+		}
+	}
+
+	return fmt.Sprintf(format, c.User, password, c.Host, c.Port, c.DatabaseName, extra)
+}
 
 func (c Connection) DSNUnEncrypt() string {
-	sslConfig := "disable"
-	if c.AllowSsl {
-		sslConfig = "allow"
+
+	var format, extra string
+	switch c.Type {
+	case "mysql":
+		format = "%s:%s@tcp(%s:%s)/%s?tls=%s&parseTime=true"
+		extra = "false"
+		if c.AllowSsl {
+			extra = "true"
+		}
+	case "sqlserver":
+		format = "sqlserver://%s:%s@%s:%s?database=%s&encrypt=%s"
+		extra = "disable"
+		if c.AllowSsl {
+			extra = "true"
+		}
+	default: // postgres
+		format = "user=%s password=%s host=%s port=%s dbname=%s sslmode=%s"
+		extra = "disable"
+		if c.AllowSsl {
+			extra = "allow"
+		}
 	}
-	return fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
-		c.Host, c.Port, c.User, c.Password, c.DatabaseName, sslConfig)
+	return fmt.Sprintf(format, c.User, c.Password, c.Host, c.Port, c.DatabaseName, extra)
 }
 
 func (c Connection) DisplayName() string {
@@ -101,19 +151,25 @@ func saveConnections(baseKey string, setStatus func(msg string), conns []Connect
 	}
 }
 
+func (a *App) deleteConnectionOnClick(idx int) {
+
+	name := a.connections[idx].DisplayName()
+	a.connections = append(a.connections[:idx], a.connections[idx+1:]...)
+	saveConnections(a.baseKey, a.setStatus, a.connections)
+	a.rebuildConnList()
+	if a.activeConn != nil && a.activeConn.DisplayName() == name {
+		a.disconnect()
+	}
+	a.setStatus(fmt.Sprintf("[yellow]Conexión '%s' eliminada[-]", name))
+}
+
 func (a *App) deleteConnection(idx int) {
 	if idx < 0 || idx >= len(a.connections) {
 		return
 	}
 	name := a.connections[idx].DisplayName()
 	a.showConfirmDialog(fmt.Sprintf("¿Eliminar conexión '%s'?", name), func() {
-		a.connections = append(a.connections[:idx], a.connections[idx+1:]...)
-		saveConnections(a.baseKey, a.setStatus, a.connections)
-		a.rebuildConnList()
-		if a.activeConn.DisplayName() == name {
-			a.disconnect()
-		}
-		a.setStatus(fmt.Sprintf("[yellow]Conexión '%s' eliminada[-]", name))
+		a.deleteConnectionOnClick(idx)
 	})
 }
 
