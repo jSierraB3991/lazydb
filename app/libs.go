@@ -39,6 +39,37 @@ func (d DBType) GetSelect(schema, table string) string {
 	}
 }
 
+func (d DBType) GetSchemasQuery() string {
+	switch d {
+	case DBPostgres:
+		return `
+			SELECT table_schema, table_name
+			FROM information_schema.tables
+			WHERE table_schema NOT IN ('pg_catalog', 'information_schema')
+			ORDER BY table_schema, table_name
+		`
+	case DBMySQL:
+		return `
+			SELECT DATABASE() as table_schema, table_name 
+			FROM information_schema.tables 
+			WHERE table_schema = DATABASE()
+		`
+	case DBSQLServer:
+		return `
+			SELECT SCHEMA_NAME(schema_id) AS schema_name, name AS table_name
+			FROM sys.tables
+			ORDER BY schema_name, table_name
+		`
+	default:
+		return `
+			SELECT table_schema, table_name
+			FROM information_schema.tables
+			WHERE table_schema NOT IN ('pg_catalog', 'information_schema')
+			ORDER BY table_schema, table_name
+		`
+	}
+}
+
 const (
 	NAME       string = "Nombre (Opcional)"
 	MANAGEMENT string = "Gestor"

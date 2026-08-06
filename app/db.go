@@ -187,12 +187,8 @@ func (a *App) loadSchemas() {
 	a.tableView.Clear()
 	a.tableView.SetTitle(TABLE_VIEW_TITLE)
 
-	rows, err := a.activeDb.Query(`
-		SELECT table_schema, table_name
-		FROM information_schema.tables
-		WHERE table_schema NOT IN ('pg_catalog', 'information_schema')
-		ORDER BY table_schema, table_name
-        `)
+	query := a.activeConn.Type.GetSchemasQuery()
+	rows, err := a.activeDb.Query(query)
 	if err != nil {
 		a.setStatus(fmt.Sprintf("[red]Error cargando schemas %v[-]", err))
 		return
